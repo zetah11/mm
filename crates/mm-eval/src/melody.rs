@@ -1,12 +1,12 @@
 use crate::{Factor, Length, Name};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Melody<'a> {
     pub node: Node<'a>,
     pub length: Length,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Node<'a> {
     Pause,
     Note(char),

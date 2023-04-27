@@ -9,8 +9,8 @@ impl<'a> Checker<'a> {
 
     fn lower(&self, factor: Factor, melody: &implicit::Melody) -> melody::Melody<'a> {
         let (node, length) = match melody {
-            implicit::Melody::Pause => (melody::Node::Pause, Length::one() * factor),
-            implicit::Melody::Note(note) => (melody::Node::Note(*note), Length::one() * factor),
+            implicit::Melody::Pause => (melody::Node::Pause, Length::one()),
+            implicit::Melody::Note(note) => (melody::Node::Note(*note), Length::one()),
 
             implicit::Melody::Name(name) => {
                 let var = self
@@ -18,7 +18,7 @@ impl<'a> Checker<'a> {
                     .get(name)
                     .expect("all names are solved before lowering");
                 let length = self.lengths.get(var).expect("no variable is unsolved");
-                (melody::Node::Name(name.clone()), *length * factor)
+                (melody::Node::Name(name.clone()), *length)
             }
 
             implicit::Melody::Scale(by, melody) => {
@@ -29,18 +29,24 @@ impl<'a> Checker<'a> {
             }
 
             implicit::Melody::Sequence(melodies) => {
-                let melodies = self
-                    .arena
-                    .alloc_extend(melodies.iter().map(|melody| self.lower(factor, melody)));
+                let melodies: Vec<_> = melodies
+                    .iter()
+                    .map(|melody| self.lower(factor, melody))
+                    .collect();
+
+                let melodies = self.arena.alloc_extend(melodies);
                 let length = melodies.iter().map(|melody| melody.length).sum();
+
                 (melody::Node::Sequence(melodies), length)
             }
 
             implicit::Melody::Stack(melodies) => {
-                let melodies = self
-                    .arena
-                    .alloc_extend(melodies.iter().map(|melody| self.lower(factor, melody)));
+                let melodies: Vec<_> = melodies
+                    .iter()
+                    .map(|melody| self.lower(factor, melody))
+                    .collect();
 
+                let melodies = self.arena.alloc_extend(melodies);
                 let length = melodies
                     .iter()
                     .map(|melody| melody.length)

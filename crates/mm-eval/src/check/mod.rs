@@ -4,6 +4,9 @@ mod lower;
 mod matrix;
 mod solve;
 
+#[cfg(test)]
+mod tests;
+
 use std::collections::{HashMap, HashSet};
 
 use typed_arena::Arena;
@@ -13,7 +16,7 @@ use crate::{implicit, melody, topology, Length, Name};
 
 use self::equation::{Equation, Variable};
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     UnknownName(String),
     // ...

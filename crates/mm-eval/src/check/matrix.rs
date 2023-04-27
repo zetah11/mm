@@ -59,7 +59,7 @@ impl<V> fmt::Debug for System<V> {
     }
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Row {
     pub coeffs: Vec<Rational>,
     pub constant: Rational,

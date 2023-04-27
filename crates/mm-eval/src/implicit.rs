@@ -1,6 +1,6 @@
 use crate::{Factor, Name};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Melody<'a> {
     Pause,
     Note(char),

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
 use rational::Rational;
 
 use crate::Length;
@@ -18,47 +19,64 @@ impl Checker<'_> {
             .collect();
 
         // Variables are in the same order as the equation list
-        let rows = equations
+        let possible_rows = equations
             .into_iter()
             .map(|equation| self.make_row(&var_positions, equation))
-            .collect();
+            .multi_cartesian_product();
 
-        let system = System::new(rows, vars);
-        let solution = match solve(system) {
-            Some(solution) => solution,
-            None => todo!(),
-        };
+        let mut result = vec![Rational::zero(); vars.len()];
 
-        for (var, length) in solution {
+        for rows in possible_rows {
+            let system = System::new(rows, vars.clone());
+            match solve(system) {
+                Some(solution) => {
+                    for (total, (_, new)) in result.iter_mut().zip(solution) {
+                        *total = (*total).max(new);
+                    }
+                }
+
+                None => todo!(),
+            };
+        }
+
+        for (var, length) in vars.into_iter().zip(result) {
             debug_assert!(self.lengths.insert(var, Length(length)).is_none());
         }
     }
 
-    fn make_row(&self, var_positions: &HashMap<Variable, usize>, mut equation: Equation) -> Row {
-        if equation.sums.len() != 1 {
-            todo!()
-        }
+    fn make_row(&self, var_positions: &HashMap<Variable, usize>, equation: Equation) -> Vec<Row> {
+        let index = *var_positions
+            .get(&equation.var)
+            .expect("equation variable is part of the equation");
 
-        let mut constant = Rational::zero();
-        let mut coeffs = vec![Rational::zero(); var_positions.len()];
+        equation
+            .sums
+            .into_iter()
+            .map(|sum| {
+                let mut constant = Rational::zero();
+                let mut coeffs = vec![Rational::zero(); var_positions.len()];
 
-        for term in equation.sums.remove(0).terms {
-            match term {
-                Term::Constant(value) => constant += value.0,
-                Term::Variable(factor, var) => {
-                    if let Some(pos) = var_positions.get(&var) {
-                        coeffs[*pos] += factor.0;
-                    } else {
-                        let length = self
-                            .lengths
-                            .get(&var)
-                            .expect("melodies are processed in topological order");
-                        constant += length.0;
+                coeffs[index] = Rational::one();
+
+                for term in sum.terms {
+                    match term {
+                        Term::Constant(value) => constant += value.0,
+                        Term::Variable(factor, var) => {
+                            if let Some(pos) = var_positions.get(&var) {
+                                coeffs[*pos] -= factor.0;
+                            } else {
+                                let length = self
+                                    .lengths
+                                    .get(&var)
+                                    .expect("melodies are processed in topological order");
+                                constant += length.0;
+                            }
+                        }
                     }
                 }
-            }
-        }
 
-        Row { coeffs, constant }
+                Row { coeffs, constant }
+            })
+            .collect()
     }
 }
