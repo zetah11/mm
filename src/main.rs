@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use mm_eval::eval::Evaluator;
-use mm_eval::melody::{Factor, Length, Melody, Name, Node};
+use mm_eval::melody::{Melody, Node};
+use mm_eval::{Factor, Length, Name};
 use rational::Rational;
 
 fn main() {

@@ -3,7 +3,8 @@ use std::collections::{BinaryHeap, HashMap};
 
 use rational::Rational;
 
-use crate::melody::{Factor, Length, Melody, Name, Node, Time};
+use crate::melody::{Melody, Node};
+use crate::{Factor, Length, Name, Time};
 
 pub struct Evaluator<'a> {
     program: HashMap<Name, &'a Melody<'a>>,

@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 rational = "1.2"
+typed-arena = "2.0.2"
