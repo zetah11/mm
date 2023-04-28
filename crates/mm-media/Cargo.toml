@@ -9,4 +9,5 @@ edition = "2021"
 mm-eval = { path = "../mm-eval" }
 
 midly = "0.5"
-rational = "1.2"
+num-rational = "0.4"
+num-traits = "0.2"

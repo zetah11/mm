@@ -3,30 +3,31 @@ use std::fmt;
 use std::iter::Sum;
 use std::ops::{Add, Mul};
 
-use rational::Rational;
+use num_bigint::BigInt;
+use num_rational::BigRational;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Factor(pub Rational);
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct Factor(pub BigRational);
 
 impl Factor {
     pub fn one() -> Self {
-        Self(Rational::one())
+        Self(BigRational::from_integer(BigInt::from(1)))
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Length {
-    Bounded(Rational),
+    Bounded(BigRational),
     Unbounded,
 }
 
 impl Length {
     pub fn one() -> Self {
-        Self::Bounded(Rational::one())
+        Self::Bounded(BigRational::from_integer(BigInt::from(1)))
     }
 
     pub fn zero() -> Self {
-        Self::Bounded(Rational::zero())
+        Self::Bounded(BigRational::from_integer(BigInt::from(0)))
     }
 
     pub fn is_unbounded(&self) -> bool {
@@ -60,12 +61,12 @@ impl Ord for Length {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Time(pub Rational);
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct Time(pub BigRational);
 
 impl Time {
     pub fn zero() -> Self {
-        Self(Rational::zero())
+        Self(BigRational::from_integer(BigInt::from(0)))
     }
 }
 

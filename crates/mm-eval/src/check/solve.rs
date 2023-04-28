@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use itertools::Itertools;
-use rational::Rational;
+use num_bigint::BigInt;
+use num_rational::BigRational;
 
 use crate::Length;
 
@@ -10,7 +11,7 @@ use super::matrix::{solve, Row, System};
 use super::Checker;
 
 enum Solution {
-    Solved(Vec<(Variable, Rational)>),
+    Solved(Vec<(Variable, BigRational)>),
     Unbounded(Vec<Variable>),
 }
 
@@ -50,14 +51,14 @@ impl<N> Checker<'_, '_, N> {
         // Variables are in the same order as the equation list
         let possible_rows = possible_rows.into_iter().multi_cartesian_product();
 
-        let mut result = vec![Rational::zero(); vars.len()];
+        let mut result = vec![BigRational::from_integer(BigInt::from(0)); vars.len()];
 
         for rows in possible_rows {
             let system = System::new(rows, vars.clone());
             match solve(system) {
                 Some(solution) => {
-                    for (total, (_, new)) in result.iter_mut().zip(solution) {
-                        *total = (*total).max(new);
+                    for (total, (_, mut new)) in result.iter_mut().zip(solution) {
+                        *total = total.max(&mut new).clone();
                     }
                 }
 
@@ -81,10 +82,10 @@ impl<N> Checker<'_, '_, N> {
 
         let mut rows = Vec::with_capacity(equation.sums.len());
         for sum in equation.sums {
-            let mut constant = Rational::zero();
-            let mut coeffs = vec![Rational::zero(); var_positions.len()];
+            let mut constant = BigRational::from_integer(BigInt::from(0));
+            let mut coeffs = vec![BigRational::from_integer(BigInt::from(0)); var_positions.len()];
 
-            coeffs[index] = Rational::one();
+            coeffs[index] = BigRational::from_integer(BigInt::from(1));
 
             for term in sum.terms {
                 match term {
@@ -101,7 +102,7 @@ impl<N> Checker<'_, '_, N> {
                                 .expect("melodies are processed in topological order");
 
                             let Length::Bounded(length) = length else { return None; };
-                            constant += *length;
+                            constant += length.clone();
                         }
                     }
                 }

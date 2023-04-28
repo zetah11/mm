@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use rational::extras::r;
+use num_bigint::BigInt;
+use num_rational::BigRational;
 use typed_arena::Arena;
 
 use crate::implicit::Melody;
@@ -8,6 +9,10 @@ use crate::span::span_in;
 use crate::{Factor, Name};
 
 use super::{Error, Parser};
+
+fn r(n: i128, d: i128) -> BigRational {
+    BigRational::new(BigInt::from(n), BigInt::from(d))
+}
 
 fn check_ok(expected: HashMap<Name, &Melody<char>>, source: &str) {
     let arena = Arena::new();

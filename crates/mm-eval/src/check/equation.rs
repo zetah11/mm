@@ -17,7 +17,7 @@ pub struct Sum {
     pub terms: Vec<Term>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Term {
     Constant(Length),
     Variable(Factor, Variable),

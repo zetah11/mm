@@ -1,4 +1,5 @@
-use rational::Rational;
+use num_bigint::BigInt;
+use num_rational::BigRational;
 
 use super::lex::Token;
 use super::{Error, Parser};
@@ -142,25 +143,25 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
                     (Self::parse_int(s), span)
                 } else {
                     self.errors.push(Error::ExpectedNumber(self.span));
-                    (1, span)
+                    (BigInt::from(1), span)
                 };
 
-            if num == 0 {
+            if num == BigInt::from(0) {
                 self.errors.push(Error::DivisionByZero(second_span));
-                num = 1;
+                num = BigInt::from(1);
             }
 
             span = span + second_span;
             num
         } else {
-            1
+            BigInt::from(1)
         };
 
-        (Factor(Rational::new(first, second)), span)
+        (Factor(BigRational::new(first, second)), span)
     }
 
-    fn parse_int(s: &str) -> i128 {
-        let mut res = 0;
+    fn parse_int(s: &str) -> BigInt {
+        let mut res = BigInt::from(0);
         for c in s.chars() {
             let v = match c {
                 '0' => 0,

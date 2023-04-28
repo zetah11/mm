@@ -1,6 +1,8 @@
 use std::fmt;
 
-use rational::Rational;
+use num_bigint::BigInt;
+use num_rational::BigRational;
+use num_traits::Signed;
 
 /// Represents a system of linear equations in terms of an augmented matrix of
 /// rows multiplied by a vector of variables.
@@ -61,15 +63,16 @@ impl<V> fmt::Debug for System<V> {
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Row {
-    pub coeffs: Vec<Rational>,
-    pub constant: Rational,
+    pub coeffs: Vec<BigRational>,
+    pub constant: BigRational,
 }
 
 impl Row {
     fn zeroes(&self) -> usize {
         let mut zeroes = 0;
-        for coeff in self.coeffs.iter().copied() {
-            if coeff != Rational::zero() {
+        let zero = BigRational::from_integer(BigInt::from(0));
+        for coeff in self.coeffs.iter() {
+            if coeff != &zero {
                 break;
             }
 
@@ -98,26 +101,26 @@ impl fmt::Debug for Row {
 
 /// Attempt to solve the given system of linear equations. Returns `None` if
 /// the system has no solution.
-pub fn solve<V>(mut system: System<V>) -> Option<Vec<(V, Rational)>> {
+pub fn solve<V>(mut system: System<V>) -> Option<Vec<(V, BigRational)>> {
     eliminate(&mut system)?;
     backsolve(system)
 }
 
 /// Solve a system of linear equations through backsubstitution, assuming the
 /// system is in row echelon form.
-fn backsolve<V>(system: System<V>) -> Option<Vec<(V, Rational)>> {
+fn backsolve<V>(system: System<V>) -> Option<Vec<(V, BigRational)>> {
     debug_assert!(system.is_row_echelon());
 
-    let mut solutions = vec![Rational::zero(); system.size];
+    let mut solutions = vec![BigRational::from_integer(BigInt::from(0)); system.size];
 
     for (index, row) in system.rows.iter().enumerate().rev() {
-        let mut sum = row.constant;
+        let mut sum = row.constant.clone();
 
         for (col, solution) in row.coeffs.iter().zip(solutions.iter()).skip(index + 1) {
-            sum -= *col * *solution;
+            sum -= col.clone() * solution.clone();
         }
 
-        solutions[index] = sum / row.coeffs[index];
+        solutions[index] = sum / row.coeffs[index].clone();
     }
 
     Some(system.vars.into_iter().zip(solutions).collect())
@@ -132,18 +135,18 @@ fn eliminate<V>(system: &mut System<V>) -> Option<()> {
             return None;
         }
 
-        let big = system.rows[column].coeffs[column];
+        let big = system.rows[column].coeffs[column].clone();
         for row in column + 1..system.size {
-            let scale = system.rows[row].coeffs[column] / big;
+            let scale = system.rows[row].coeffs[column].clone() / big.clone();
 
             for col in column + 1..system.size {
-                let above = system.rows[column].coeffs[col];
-                system.rows[row].coeffs[col] -= scale * above;
+                let above = system.rows[column].coeffs[col].clone();
+                system.rows[row].coeffs[col] -= scale.clone() * above;
             }
 
-            system.rows[row].coeffs[column] = Rational::zero();
+            system.rows[row].coeffs[column] = BigRational::from_integer(BigInt::from(0));
 
-            let above = system.rows[column].constant;
+            let above = system.rows[column].constant.clone();
             system.rows[row].constant -= scale * above;
         }
     }
@@ -156,7 +159,7 @@ fn eliminate<V>(system: &mut System<V>) -> Option<()> {
 fn largest_row_index<V>(system: &System<V>, column: usize, from: usize) -> Option<usize> {
     debug_assert!(column < system.size);
 
-    let mut max = Rational::zero();
+    let mut max = BigRational::from_integer(BigInt::from(0));
     let mut at = None;
 
     for (index, row) in system.rows.iter().enumerate().skip(from) {
@@ -167,7 +170,7 @@ fn largest_row_index<V>(system: &System<V>, column: usize, from: usize) -> Optio
         }
     }
 
-    if max == Rational::zero() {
+    if max == BigRational::from_integer(BigInt::from(0)) {
         None
     } else {
         at
@@ -176,12 +179,15 @@ fn largest_row_index<V>(system: &System<V>, column: usize, from: usize) -> Optio
 
 #[cfg(test)]
 mod tests {
-    use rational::extras::r;
-    use rational::Rational;
-
-    use crate::check::matrix::{largest_row_index, solve};
+    use num_bigint::BigInt;
+    use num_rational::BigRational;
 
     use super::{eliminate, Row, System};
+    use crate::check::matrix::{largest_row_index, solve};
+
+    fn r(n: i128, d: i128) -> BigRational {
+        BigRational::new(BigInt::from(n), BigInt::from(d))
+    }
 
     #[test]
     fn argmax() {
@@ -228,7 +234,7 @@ mod tests {
         };
 
         let r2 = Row {
-            coeffs: vec![r(5, 1), Rational::integer(-2)],
+            coeffs: vec![r(5, 1), r(-2, 1)],
             constant: r(3, 1),
         };
 
@@ -239,7 +245,7 @@ mod tests {
         eliminate(&mut system);
 
         let r1 = Row {
-            coeffs: vec![r(5, 1), Rational::integer(-2)],
+            coeffs: vec![r(5, 1), r(-2, 1)],
             constant: r(3, 1),
         };
 
@@ -319,7 +325,7 @@ mod tests {
         };
 
         let r2 = Row {
-            coeffs: vec![r(5, 1), Rational::integer(-2)],
+            coeffs: vec![r(5, 1), r(-2, 1)],
             constant: r(3, 1),
         };
 

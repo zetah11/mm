@@ -18,7 +18,7 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
                     .expect("all names are given variables");
 
                 match self.lengths.get(var) {
-                    Some(length) => (melody::Node::Name(name.clone()), *length),
+                    Some(length) => (melody::Node::Name(name.clone()), length.clone()),
                     None => {
                         self.errors.push(Error::UnknownName(span, name.0.clone()));
                         (melody::Node::Pause, Length::one())
@@ -29,9 +29,9 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
             implicit::Melody::Scale(_, by, melody) => {
                 let melody = self.lower(melody);
                 let melody = self.arena.alloc(melody);
-                let length = *by * melody.length;
+                let length = by.clone() * melody.length.clone();
 
-                (melody::Node::Scale(*by, melody), length)
+                (melody::Node::Scale(by.clone(), melody), length)
             }
 
             implicit::Melody::Sequence(melodies) => {
@@ -45,7 +45,7 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
 
                 let melodies = self.arena.alloc_extend(melodies);
 
-                let length = melodies.iter().map(|melody| melody.length).sum();
+                let length = melodies.iter().map(|melody| melody.length.clone()).sum();
 
                 (melody::Node::Sequence(melodies), length)
             }
@@ -57,7 +57,7 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
 
                 let length = melodies
                     .iter()
-                    .map(|melody| melody.length)
+                    .map(|melody| melody.length.clone())
                     .max()
                     .unwrap_or_else(Length::zero);
 

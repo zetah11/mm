@@ -24,17 +24,21 @@ impl<N: Note> Checker<'_, '_, N> {
             ),
 
             Melody::Scale(_, scale, melody) => {
-                let factor = factor * *scale;
+                let factor = factor * scale.clone();
                 self.build(factor, melody)
             }
 
-            Melody::Sequence(melodies) => {
-                Self::sum(melodies.iter().map(|melody| self.build(factor, melody)))
-            }
+            Melody::Sequence(melodies) => Self::sum(
+                melodies
+                    .iter()
+                    .map(|melody| self.build(factor.clone(), melody)),
+            ),
 
-            Melody::Stack(melodies) => {
-                Self::max(melodies.iter().map(|melody| self.build(factor, melody)))
-            }
+            Melody::Stack(melodies) => Self::max(
+                melodies
+                    .iter()
+                    .map(|melody| self.build(factor.clone(), melody)),
+            ),
         }
     }
 
@@ -66,7 +70,7 @@ impl<N: Note> Checker<'_, '_, N> {
                             .terms
                             .iter()
                             .chain(sum2.terms.iter())
-                            .copied()
+                            .cloned()
                             .collect();
 
                         result.push(Sum { terms });

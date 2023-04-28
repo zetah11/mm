@@ -5,7 +5,8 @@ use midly::num::{u28, u4, u7};
 use midly::{MidiMessage, TrackEvent, TrackEventKind};
 use mm_eval::span::Span;
 use mm_eval::{Length, Time};
-use rational::Rational;
+use num_rational::BigRational;
+use num_traits::{FromPrimitive, ToPrimitive};
 
 use super::Pitch;
 
@@ -23,7 +24,7 @@ pub fn write_channel<'src>(
 
     for (note, _, start, length) in notes {
         let on = PitchEvent {
-            at: start,
+            at: start.clone(),
             kind: PitchEventKind::On(note),
         };
 
@@ -38,8 +39,10 @@ pub fn write_channel<'src>(
 
     let mut at = 0;
     while let Some(event) = events.pop() {
-        let now = (Rational::integer(ticks_per_beat as i128) * event.at.0).decimal_value();
-        let now = now as usize;
+        let now = (event.at.0 * BigRational::from_usize(ticks_per_beat).unwrap())
+            .to_usize()
+            .expect("start times are reasonably small");
+
         let delta = now - at;
         let delta = u28::new(u32::try_from(delta).unwrap());
         at = now;

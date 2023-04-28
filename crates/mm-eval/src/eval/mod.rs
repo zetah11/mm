@@ -72,9 +72,9 @@ impl<N> PartialOrd for NextMelody<'_, '_, N> {
 
 impl<N> Ord for NextMelody<'_, '_, N> {
     fn cmp(&self, other: &Self) -> Ordering {
-        let Time(this) = self.start;
-        let Time(other) = other.start;
-        this.cmp(&other).reverse()
+        let Time(this) = &self.start;
+        let Time(other) = &other.start;
+        this.cmp(other).reverse()
     }
 }
 
@@ -100,7 +100,7 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
             match &next.melody.node {
                 Node::Pause => {}
                 Node::Note(note) => {
-                    let length = next.melody.length * factor;
+                    let length = next.melody.length.clone() * factor;
                     return Some((note.clone(), span, start, length));
                 }
 
@@ -126,7 +126,7 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                 }
 
                 Node::Scale(scale, melody) => {
-                    let factor = Factor(factor.0 * scale.0);
+                    let factor = Factor(factor.0 * scale.0.clone());
                     self.queue.push(NextMelody {
                         melody,
                         depth,
@@ -138,19 +138,19 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                 Node::Sequence(melodies) => {
                     let mut start = start;
                     for melody in *melodies {
-                        let length = melody.length;
+                        let length = melody.length.clone();
                         self.queue.push(NextMelody {
                             melody,
                             depth,
-                            start,
-                            factor,
+                            start: start.clone(),
+                            factor: factor.clone(),
                         });
 
                         if matches!(length, Length::Unbounded) {
                             break;
                         }
 
-                        start = start + factor * length;
+                        start = start.clone() + factor.clone() * length;
                     }
                 }
 
@@ -159,8 +159,8 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                         self.queue.push(NextMelody {
                             melody,
                             depth,
-                            start,
-                            factor,
+                            start: start.clone(),
+                            factor: factor.clone(),
                         });
                     }
                 }

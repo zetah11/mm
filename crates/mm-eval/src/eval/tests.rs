@@ -1,12 +1,17 @@
 use std::collections::HashMap;
 
-use rational::extras::r;
+use num_bigint::BigInt;
+use num_rational::BigRational;
 
 use crate::melody::{Melody, Node};
 use crate::span::{span, Span};
 use crate::{Factor, Length, Name, Time};
 
 use super::Evaluator;
+
+fn r(n: i128, d: i128) -> BigRational {
+    BigRational::new(BigInt::from(n), BigInt::from(d))
+}
 
 fn check(expected: Vec<(char, Span, Time, Length)>, program: HashMap<Name, &Melody<char>>) {
     let eval = Evaluator::new(program, Name("it".into()));

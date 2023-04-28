@@ -3,7 +3,7 @@ use mm_eval::{compile, Name};
 use mm_media::midi;
 use typed_arena::Arena;
 
-const MAX_DEPTH: usize = 20;
+const MAX_DEPTH: usize = 100;
 const MAX_NOTES: usize = 1000;
 
 const SOURCE: &str = r#"
