@@ -16,21 +16,40 @@ use crate::Name;
 
 use self::lex::Token;
 
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub enum Error<'src> {
+    ExpectedEqual(Span<'src>),
+    ExpectedName(Span<'src>),
+    ExpectedNote(Span<'src>),
+    ExpectedNumber(Span<'src>),
+
+    DivisionByZero(Span<'src>),
+    UnclosedParen { opener: Span<'src>, at: Span<'src> },
+}
+
 pub struct Parser<'a, 'src, N> {
     source: &'src str,
     arena: &'a Arena<Melody<'a, 'src, N>>,
     lexer: SpannedIter<'src, Token<'src>>,
     next: Option<(Token<'src>, Span<'src>)>,
+    span: Span<'src>,
+
+    errors: Vec<Error<'src>>,
 }
 
 impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
     pub fn parse(
         arena: &'a Arena<Melody<'a, 'src, N>>,
         source: &'src str,
-    ) -> HashMap<Name, &'a Melody<'a, 'src, N>> {
+    ) -> Result<HashMap<Name, &'a Melody<'a, 'src, N>>, Vec<Error<'src>>> {
         let mut parser = Self::new(arena, source);
         parser.advance();
-        parser.parse_program()
+        let parsed = parser.parse_program();
+        if parser.errors.is_empty() {
+            Ok(parsed)
+        } else {
+            Err(parser.errors)
+        }
     }
 
     fn new(arena: &'a Arena<Melody<'a, 'src, N>>, source: &'src str) -> Self {
@@ -39,35 +58,39 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
             arena,
             lexer: Token::lexer(source).spanned(),
             next: None,
+            span: Span::new(source, 0..0),
+            errors: Vec::new(),
         }
     }
 
-    fn advance(&mut self) {
-        self.next = None;
+    fn advance(&mut self) -> Option<(Token<'src>, Span<'src>)> {
+        let prev = self.next.take();
 
         for (next, span) in self.lexer.by_ref() {
             if let Ok(token) = next {
-                self.next = Some((token, Span::new(self.source, span)));
+                let span = Span::new(self.source, span);
+                self.next = Some((token, span));
+                self.span = span;
                 break;
             }
         }
+
+        prev
     }
 
-    fn peek(&self, m: impl Matcher) -> Option<Span<'src>> {
+    fn peek(&self, m: impl Matcher) -> Option<(Token<'src>, Span<'src>)> {
         if let Some((token, span)) = self.next.as_ref() {
-            m.matches(token).then_some(*span)
+            m.matches(token).then_some((*token, *span))
         } else {
             None
         }
     }
 
-    fn consume(&mut self, m: impl Matcher) -> Option<Span<'src>> {
-        if let Some(v) = self.peek(m) {
+    fn consume(&mut self, m: impl Matcher) -> Option<(Token<'src>, Span<'src>)> {
+        self.peek(m).map(|v| {
             self.advance();
-            Some(v)
-        } else {
-            None
-        }
+            v
+        })
     }
 }
 

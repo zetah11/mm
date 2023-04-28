@@ -7,12 +7,18 @@ use crate::implicit::Melody;
 use crate::span::span_in;
 use crate::{Factor, Name};
 
-use super::Parser;
+use super::{Error, Parser};
 
 fn check_ok(expected: HashMap<Name, &Melody<char>>, source: &str) {
     let arena = Arena::new();
     let actual = Parser::parse(&arena, source);
-    assert_eq!(expected, actual);
+    assert_eq!(Ok(expected), actual);
+}
+
+fn check_err(expected: Vec<Error>, source: &str) {
+    let arena: Arena<Melody<char>> = Arena::new();
+    let actual = Parser::parse(&arena, source);
+    assert_eq!(Err(expected), actual);
 }
 
 #[test]
@@ -87,4 +93,62 @@ fn mutual() {
     let expected = HashMap::from([(Name("it".into()), &it), (Name("at".into()), &at)]);
 
     check_ok(expected, source);
+}
+
+#[test]
+fn expected_equal() {
+    let source = r#"aa bb = A"#;
+    let s = span_in(source);
+
+    let expected = vec![Error::ExpectedEqual(s(3, 5))];
+    check_err(expected, source);
+}
+
+#[test]
+fn glasses() {
+    let source = r#"a = a"#;
+    let s = span_in(source);
+
+    let expected = vec![Error::ExpectedName(s(0, 1))];
+    check_err(expected, source);
+}
+
+#[test]
+fn not_a_number() {
+    let source = r#"it = 1/at"#;
+    let s = span_in(source);
+
+    let expected = vec![Error::ExpectedNumber(s(7, 9))];
+    check_err(expected, source);
+}
+
+#[test]
+fn division_by_zero() {
+    let source = r#"it = 1/0 a"#;
+    let s = span_in(source);
+
+    let expected = vec![Error::DivisionByZero(s(7, 8))];
+    check_err(expected, source);
+}
+
+#[test]
+fn expected_note() {
+    let source = r#"it = 1,"#;
+    let s = span_in(source);
+
+    let expected = vec![Error::ExpectedNote(s(6, 7))];
+    check_err(expected, source);
+}
+
+#[test]
+fn odd_parens() {
+    let source = r#"it = (((a))"#;
+    let s = span_in(source);
+
+    let expected = vec![Error::UnclosedParen {
+        opener: s(5, 6),
+        at: s(10, 11),
+    }];
+
+    check_err(expected, source);
 }

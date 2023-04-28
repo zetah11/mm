@@ -6,4 +6,4 @@ Correctness
 Errors
 [x] span information
 [ ] report multiple checking errors for the same definition
-[ ] report parse errors
+[x] report parse errors

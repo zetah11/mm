@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use rational::Rational;
 
 use super::lex::Token;
-use super::Parser;
+use super::{Error, Parser};
 use crate::implicit::Melody;
 use crate::note::Note;
 use crate::span::Span;
@@ -14,29 +14,37 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         let mut program = HashMap::new();
 
         while self.next.is_some() {
-            let (name, body) = self.definition();
+            let Some((name, body)) = self.definition() else { continue; };
             program.insert(name, body);
         }
 
         program
     }
 
-    fn definition(&mut self) -> (Name, &'a Melody<'a, 'src, N>) {
-        let name = match self.next {
-            Some((Token::Name(name), _)) => Name(name.into()),
+    fn definition(&mut self) -> Option<(Name, &'a Melody<'a, 'src, N>)> {
+        let name = match self.advance() {
+            Some((Token::Name(name), span)) => {
+                if N::parse(name).is_some() {
+                    self.errors.push(Error::ExpectedName(span));
+                }
 
-            _ => todo!(),
+                Name(name.into())
+            }
+
+            _ => {
+                self.errors.push(Error::ExpectedName(self.span));
+                Name("[error]".into())
+            }
         };
 
-        self.advance();
-
         if self.consume(Token::Equal).is_none() {
-            todo!()
+            self.errors.push(Error::ExpectedEqual(self.span));
+            return None;
         }
 
         let body = self.expression();
         let body = self.arena.alloc(body);
-        (name, body)
+        Some((name, body))
     }
 
     fn expression(&mut self) -> Melody<'a, 'src, N> {
@@ -85,7 +93,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
     }
 
     fn simple(&mut self) -> Melody<'a, 'src, N> {
-        let melody = match self.next {
+        let melody = match self.advance() {
             Some((Token::Name(n), span)) => match N::parse(n) {
                 Some(note) => Melody::Note(span, note),
                 None => Melody::Name(span, Name(n.into())),
@@ -93,41 +101,49 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
 
             Some((Token::Pause, span)) => Melody::Pause(span),
 
-            Some((Token::LeftParen, _)) => {
-                self.advance();
+            Some((Token::LeftParen, opener)) => {
                 let melody = self.expression();
 
                 if self.consume(Token::RightParen).is_none() {
-                    todo!()
+                    self.errors.push(Error::UnclosedParen {
+                        opener,
+                        at: self.span,
+                    });
                 }
 
-                return melody;
+                melody
             }
 
-            _ => todo!("{:?}", self.next),
+            _ => {
+                self.errors.push(Error::ExpectedNote(self.span));
+                Melody::Pause(self.span)
+            }
         };
 
-        self.advance();
         melody
     }
 
     fn factor(&mut self) -> (Factor, Span<'src>) {
-        let (first, mut span) = match self.next {
+        let (first, mut span) = match self.advance() {
             Some((Token::Number(s), span)) => (Self::parse_int(s), span),
             _ => unreachable!(),
         };
 
-        self.advance();
-
         let second = if self.consume(Token::Slash).is_some() {
-            let (num, second_span) = match self.next {
-                Some((Token::Number(s), span)) => (Self::parse_int(s), span),
-                _ => todo!(),
-            };
+            let (mut num, second_span) =
+                if let Some((Token::Number(s), span)) = self.consume(Token::Number("")) {
+                    (Self::parse_int(s), span)
+                } else {
+                    self.errors.push(Error::ExpectedNumber(self.span));
+                    (1, span)
+                };
+
+            if num == 0 {
+                self.errors.push(Error::DivisionByZero(second_span));
+                num = 1;
+            }
 
             span = span + second_span;
-
-            self.advance();
             num
         } else {
             1

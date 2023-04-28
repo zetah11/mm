@@ -19,12 +19,19 @@ mod topology;
 pub struct Name(pub String);
 
 #[derive(Debug)]
-pub enum Error {
+pub enum Error<'src> {
+    Parse(parse::Error<'src>),
     Check(check::Error),
 }
 
-impl From<check::Error> for Error {
+impl From<check::Error> for Error<'_> {
     fn from(value: check::Error) -> Self {
         Self::Check(value)
+    }
+}
+
+impl<'src> From<parse::Error<'src>> for Error<'src> {
+    fn from(value: parse::Error<'src>) -> Self {
+        Self::Parse(value)
     }
 }
