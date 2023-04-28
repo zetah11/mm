@@ -13,34 +13,35 @@ use typed_arena::Arena;
 
 use crate::dependency::dependencies;
 use crate::note::Note;
+use crate::span::Span;
 use crate::{implicit, melody, topology, Length, Name};
 
 use self::equation::{Equation, Variable};
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum Error {
-    UnknownName(String),
-    UnboundedNotLast,
+pub enum Error<'src> {
+    UnknownName(Span<'src>, String),
+    UnboundedNotLast(Span<'src>),
 }
 
 pub fn check<'a, 'src, N: Note>(
     arena: &'a Arena<melody::Melody<'a, 'src, N>>,
-    program: &HashMap<Name, &implicit::Melody<'_, 'src, N>>,
-) -> Result<HashMap<Name, &'a melody::Melody<'a, 'src, N>>, Vec<Error>> {
-    let graph = dependencies(program);
+    program: implicit::Program<'_, 'src, N>,
+) -> Result<melody::Program<'a, 'src, N>, Vec<Error<'src>>> {
+    let graph = dependencies(&program.defs);
     let mut checker = Checker::new(arena);
 
-    let mut errors = Vec::new();
     for names in topology::order(&graph) {
-        if let Err(e) = checker.check_component(program, names) {
-            errors.push(e);
-        }
+        checker.check_component(&program.defs, names);
     }
 
-    if errors.is_empty() {
-        Ok(checker.defs)
+    if checker.errors.is_empty() {
+        Ok(melody::Program {
+            defs: checker.defs,
+            spans: program.spans,
+        })
     } else {
-        Err(errors)
+        Err(checker.errors)
     }
 }
 
@@ -50,6 +51,8 @@ struct Checker<'a, 'src, N> {
     context: HashMap<Name, Variable>,
     lengths: HashMap<Variable, Length>,
     counter: usize,
+
+    errors: Vec<Error<'src>>,
 }
 
 impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
@@ -60,6 +63,8 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
             context: HashMap::new(),
             lengths: HashMap::new(),
             counter: 0,
+
+            errors: Vec::new(),
         }
     }
 
@@ -67,7 +72,7 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
         &mut self,
         program: &HashMap<Name, &implicit::Melody<'_, 'src, N>>,
         names: HashSet<&Name>,
-    ) -> Result<(), Error> {
+    ) {
         for name in names.iter() {
             let var = self.fresh();
             self.context.insert(Name::clone(name), var);
@@ -80,9 +85,9 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
                 .get(name)
                 .expect("all names are bound a variable");
 
-            let melody = program
-                .get(name)
-                .ok_or_else(|| Error::UnknownName(name.0.clone()))?;
+            let Some(melody) = program.get(name) else {
+                continue;
+            };
 
             let sums = self.build_equation(melody);
 
@@ -92,15 +97,11 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
         self.solve(equations);
 
         for name in names {
-            let melody = program
-                .get(name)
-                .expect("unknown names are reported earlier");
+            let Some(melody) = program.get(name) else { continue; };
 
-            let melody = self.lower_melody(melody)?;
+            let melody = self.lower(melody);
             let melody = self.arena.alloc(melody);
             debug_assert!(self.defs.insert(name.clone(), melody).is_none());
         }
-
-        Ok(())
     }
 }

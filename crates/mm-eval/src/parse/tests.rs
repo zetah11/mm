@@ -11,7 +11,7 @@ use super::{Error, Parser};
 
 fn check_ok(expected: HashMap<Name, &Melody<char>>, source: &str) {
     let arena = Arena::new();
-    let actual = Parser::parse(&arena, source);
+    let actual = Parser::parse(&arena, source).map(|program| program.defs);
     assert_eq!(Ok(expected), actual);
 }
 
@@ -148,6 +148,19 @@ fn odd_parens() {
     let expected = vec![Error::UnclosedParen {
         opener: s(5, 6),
         at: s(10, 11),
+    }];
+
+    check_err(expected, source);
+}
+
+#[test]
+fn redefinition() {
+    let source = r#"it = a it = b"#;
+    let s = span_in(source);
+
+    let expected = vec![Error::Redefinition {
+        previous: s(0, 2),
+        new: s(7, 9),
     }];
 
     check_err(expected, source);

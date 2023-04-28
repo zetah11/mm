@@ -21,11 +21,11 @@ pub struct Name(pub String);
 #[derive(Debug)]
 pub enum Error<'src> {
     Parse(parse::Error<'src>),
-    Check(check::Error),
+    Check(check::Error<'src>),
 }
 
-impl From<check::Error> for Error<'_> {
-    fn from(value: check::Error) -> Self {
+impl<'src> From<check::Error<'src>> for Error<'src> {
+    fn from(value: check::Error<'src>) -> Self {
         Self::Check(value)
     }
 }

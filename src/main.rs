@@ -19,6 +19,6 @@ fn main() {
     let program = compile(&implicits, &explicits, SOURCE).unwrap();
     let name = Name("it".into());
 
-    let eval = Evaluator::new(program, name).with_max_depth(MAX_DEPTH);
+    let eval = Evaluator::new(program.defs, name).with_max_depth(MAX_DEPTH);
     midi::write(eval.iter().take(MAX_NOTES), "out.mid").unwrap();
 }

@@ -5,5 +5,8 @@ Correctness
 
 Errors
 [x] span information
-[ ] report multiple checking errors for the same definition
+[x] report multiple checking errors for the same definition
 [x] report parse errors
+
+Various
+[ ] intern names

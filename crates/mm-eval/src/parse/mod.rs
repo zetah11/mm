@@ -4,15 +4,12 @@ mod rules;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
-
 use logos::{Logos, SpannedIter};
 use typed_arena::Arena;
 
-use crate::implicit::Melody;
+use crate::implicit::{Melody, Program};
 use crate::note::Note;
 use crate::span::Span;
-use crate::Name;
 
 use self::lex::Token;
 
@@ -23,8 +20,16 @@ pub enum Error<'src> {
     ExpectedNote(Span<'src>),
     ExpectedNumber(Span<'src>),
 
+    Redefinition {
+        previous: Span<'src>,
+        new: Span<'src>,
+    },
+
     DivisionByZero(Span<'src>),
-    UnclosedParen { opener: Span<'src>, at: Span<'src> },
+    UnclosedParen {
+        opener: Span<'src>,
+        at: Span<'src>,
+    },
 }
 
 pub struct Parser<'a, 'src, N> {
@@ -41,7 +46,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
     pub fn parse(
         arena: &'a Arena<Melody<'a, 'src, N>>,
         source: &'src str,
-    ) -> Result<HashMap<Name, &'a Melody<'a, 'src, N>>, Vec<Error<'src>>> {
+    ) -> Result<Program<'a, 'src, N>, Vec<Error<'src>>> {
         let mut parser = Self::new(arena, source);
         parser.advance();
         let parsed = parser.parse_program();

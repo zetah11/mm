@@ -1,39 +1,46 @@
-use std::collections::HashMap;
-
 use rational::Rational;
 
 use super::lex::Token;
 use super::{Error, Parser};
-use crate::implicit::Melody;
+use crate::implicit::{Melody, Program};
 use crate::note::Note;
 use crate::span::Span;
 use crate::{Factor, Name};
 
 impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
-    pub(super) fn parse_program(&mut self) -> HashMap<Name, &'a Melody<'a, 'src, N>> {
-        let mut program = HashMap::new();
+    pub(super) fn parse_program(&mut self) -> Program<'a, 'src, N> {
+        let mut program = Program::new();
 
         while self.next.is_some() {
-            let Some((name, body)) = self.definition() else { continue; };
-            program.insert(name, body);
+            let Some((name, name_span, body)) = self.definition() else { continue; };
+
+            if let Some(previous) = program.spans.get(&name).copied() {
+                self.errors.push(Error::Redefinition {
+                    previous,
+                    new: name_span,
+                });
+            }
+
+            program.defs.insert(name.clone(), body);
+            program.spans.insert(name, name_span);
         }
 
         program
     }
 
-    fn definition(&mut self) -> Option<(Name, &'a Melody<'a, 'src, N>)> {
-        let name = match self.advance() {
+    fn definition(&mut self) -> Option<(Name, Span<'src>, &'a Melody<'a, 'src, N>)> {
+        let (name, name_span) = match self.advance() {
             Some((Token::Name(name), span)) => {
                 if N::parse(name).is_some() {
                     self.errors.push(Error::ExpectedName(span));
                 }
 
-                Name(name.into())
+                (Name(name.into()), span)
             }
 
             _ => {
                 self.errors.push(Error::ExpectedName(self.span));
-                Name("[error]".into())
+                (Name("[error]".into()), self.span)
             }
         };
 
@@ -44,7 +51,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
 
         let body = self.expression();
         let body = self.arena.alloc(body);
-        Some((name, body))
+        Some((name, name_span, body))
     }
 
     fn expression(&mut self) -> Melody<'a, 'src, N> {

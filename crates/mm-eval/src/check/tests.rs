@@ -13,13 +13,27 @@ fn check_ok(
     program: HashMap<Name, &implicit::Melody<char>>,
 ) {
     let arena = Arena::new();
-    let actual = super::check(&arena, &program);
+    let actual = super::check(
+        &arena,
+        implicit::Program {
+            defs: program,
+            spans: HashMap::new(),
+        },
+    )
+    .map(|program| program.defs);
+
     assert_eq!(Ok(expected), actual);
 }
 
 fn check_err(expected: Vec<Error>, program: HashMap<Name, &implicit::Melody<char>>) {
     let arena = Arena::new();
-    let actual = super::check(&arena, &program);
+    let actual = super::check(
+        &arena,
+        implicit::Program {
+            defs: program,
+            spans: HashMap::new(),
+        },
+    );
 
     assert_eq!(Err(expected), actual);
 }
@@ -274,6 +288,6 @@ fn wrong_unbounded() {
 
     let program = HashMap::from([(Name("x".into()), &melody)]);
 
-    let expected = vec![Error::UnboundedNotLast];
+    let expected = vec![Error::UnboundedNotLast(span())];
     check_err(expected, program);
 }

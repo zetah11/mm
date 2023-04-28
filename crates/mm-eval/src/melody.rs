@@ -1,5 +1,13 @@
+use std::collections::HashMap;
+
 use crate::span::Span;
 use crate::{Factor, Length, Name};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Program<'a, 'src, N> {
+    pub defs: HashMap<Name, &'a Melody<'a, 'src, N>>,
+    pub spans: HashMap<Name, Span<'src>>,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Melody<'a, 'src, N> {

@@ -1,5 +1,31 @@
+use std::collections::HashMap;
+
 use crate::span::Span;
 use crate::{Factor, Name};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Program<'a, 'src, N> {
+    pub defs: HashMap<Name, &'a Melody<'a, 'src, N>>,
+    pub spans: HashMap<Name, Span<'src>>,
+}
+
+impl<N> Program<'_, '_, N> {
+    pub fn new() -> Self {
+        Self {
+            defs: HashMap::new(),
+            spans: HashMap::new(),
+        }
+    }
+}
+
+impl<N> Default for Program<'_, '_, N> {
+    fn default() -> Self {
+        Self {
+            defs: HashMap::default(),
+            spans: HashMap::default(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Melody<'a, 'src, N> {
