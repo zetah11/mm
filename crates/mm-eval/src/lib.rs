@@ -16,3 +16,14 @@ mod topology;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Name(pub String);
+
+#[derive(Debug)]
+pub enum Error {
+    Check(check::Error),
+}
+
+impl From<check::Error> for Error {
+    fn from(value: check::Error) -> Self {
+        Self::Check(value)
+    }
+}

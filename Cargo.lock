@@ -153,9 +153,8 @@ dependencies = [
 name = "mm"
 version = "0.1.0"
 dependencies = [
- "midly",
  "mm-eval",
- "rational",
+ "mm-media",
  "typed-arena",
 ]
 
@@ -167,6 +166,15 @@ dependencies = [
  "logos",
  "rational",
  "typed-arena",
+]
+
+[[package]]
+name = "mm-media"
+version = "0.1.0"
+dependencies = [
+ "midly",
+ "mm-eval",
+ "rational",
 ]
 
 [[package]]
