@@ -1,11 +1,11 @@
 use crate::{Factor, Name};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Melody<'a> {
+pub enum Melody<'a, N> {
     Pause,
-    Note(char),
+    Note(N),
     Name(Name),
-    Scale(Factor, &'a Melody<'a>),
-    Sequence(&'a [Melody<'a>]),
-    Stack(&'a [Melody<'a>]),
+    Scale(Factor, &'a Melody<'a, N>),
+    Sequence(&'a [Melody<'a, N>]),
+    Stack(&'a [Melody<'a, N>]),
 }

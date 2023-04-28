@@ -1,48 +1,19 @@
-use std::collections::HashMap;
-
 use mm_eval::eval::Evaluator;
-use mm_eval::melody::{Melody, Node};
-use mm_eval::{Factor, Length, Name};
-use rational::extras::r;
+use mm_eval::{CompilerState, Name};
+use typed_arena::Arena;
 
 fn main() {
-    let a = Melody {
-        length: Length::one(),
-        node: Node::Note('a'),
-    };
-    let b = Melody {
-        length: Length::Bounded(r(1, 2)),
-        node: Node::Pause,
-    };
-    let c = Melody {
-        length: Length::Bounded(r(1, 2)),
-        node: Node::Note('c'),
-    };
+    let implicits = Arena::new();
+    let explicits = Arena::new();
 
-    let seq = [a, b, c];
-    let melody = Melody {
-        length: Length::Bounded(r(2, 1)),
-        node: Node::Sequence(&seq),
-    };
+    let state: CompilerState<char> = CompilerState::new(&implicits, &explicits);
 
-    let scale = Melody {
-        length: Length::Bounded(r(3, 2)),
-        node: Node::Scale(Factor(r(3, 4)), &melody),
-    };
+    let source = r#"
+        it = 1/2 (A, 1/2 (B, 1/2 C))
+    "#;
 
-    let deep = Melody {
-        length: Length::Bounded(r(2, 1)),
-        node: Node::Note('d'),
-    };
-
-    let stack = [scale, deep];
-    let whole = Melody {
-        length: Length::Bounded(r(2, 1)),
-        node: Node::Stack(&stack),
-    };
-
-    let name = Name("main".into());
-    let program = HashMap::from([(name.clone(), &whole)]);
+    let program = state.compile(source).unwrap();
+    let name = Name("it".into());
 
     let eval = Evaluator::new(program, name);
     for (note, start, length) in eval.iter() {

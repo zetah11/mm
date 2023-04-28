@@ -6,7 +6,7 @@ use crate::Name;
 /// Compute the dependency graph of the given program. Each returned entry
 /// contains "outgoing" edges: `a` is in the set of names referred to by `b` if
 /// the definition of `b` refers to `a` at any place.
-pub fn dependencies(program: &HashMap<Name, &Melody>) -> HashMap<Name, HashSet<Name>> {
+pub fn dependencies<N>(program: &HashMap<Name, &Melody<N>>) -> HashMap<Name, HashSet<Name>> {
     program
         .iter()
         .map(|(name, melody)| {
@@ -18,7 +18,7 @@ pub fn dependencies(program: &HashMap<Name, &Melody>) -> HashMap<Name, HashSet<N
 }
 
 /// Add the names referred to by `melody` to `within`.
-fn compute(within: &mut HashSet<Name>, melody: &Melody) {
+fn compute<N>(within: &mut HashSet<Name>, melody: &Melody<N>) {
     match melody {
         Melody::Pause | Melody::Note(_) => {}
 
@@ -68,7 +68,7 @@ mod tests {
 
     #[test]
     fn chain() {
-        let a = Melody::Pause;
+        let a: Melody<char> = Melody::Pause;
         let b = Melody::Name(Name("a".into()));
         let c = Melody::Name(Name("b".into()));
 
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn fork_join() {
-        let a = Melody::Pause;
+        let a: Melody<char> = Melody::Pause;
         let to_a = Melody::Name(Name("a".into()));
         let to_b = Melody::Name(Name("b".into()));
         let to_c = Melody::Name(Name("c".into()));
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn cycles() {
-        let a = Melody::Name(Name("c".into()));
+        let a: Melody<char> = Melody::Name(Name("c".into()));
         let b = Melody::Name(Name("a".into()));
         let c = Melody::Name(Name("b".into()));
 

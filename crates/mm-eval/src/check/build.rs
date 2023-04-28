@@ -2,14 +2,15 @@ use super::equation::Variable;
 use super::Checker;
 use crate::check::equation::{Sum, Term};
 use crate::implicit::Melody;
+use crate::note::Note;
 use crate::{Factor, Length};
 
-impl Checker<'_> {
-    pub fn build_equation(&self, melody: &Melody) -> Vec<Sum> {
+impl<N: Note> Checker<'_, N> {
+    pub fn build_equation(&self, melody: &Melody<N>) -> Vec<Sum> {
         self.build(Factor::one(), melody)
     }
 
-    fn build(&self, factor: Factor, melody: &Melody) -> Vec<Sum> {
+    fn build(&self, factor: Factor, melody: &Melody<N>) -> Vec<Sum> {
         match melody {
             Melody::Pause => Self::constant(factor * Length::one()),
             Melody::Note(_) => Self::constant(factor * Length::one()),

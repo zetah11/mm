@@ -7,13 +7,16 @@ use crate::{implicit, melody, Factor, Length, Name};
 
 use super::Error;
 
-fn check_ok(expected: HashMap<Name, &melody::Melody>, program: HashMap<Name, &implicit::Melody>) {
+fn check_ok(
+    expected: HashMap<Name, &melody::Melody<char>>,
+    program: HashMap<Name, &implicit::Melody<char>>,
+) {
     let arena = Arena::new();
     let actual = super::check(&arena, &program);
     assert_eq!(Ok(expected), actual);
 }
 
-fn check_err(expected: Vec<Error>, program: HashMap<Name, &implicit::Melody>) {
+fn check_err(expected: Vec<Error>, program: HashMap<Name, &implicit::Melody<char>>) {
     let arena = Arena::new();
     let actual = super::check(&arena, &program);
 

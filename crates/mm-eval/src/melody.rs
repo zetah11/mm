@@ -1,17 +1,17 @@
 use crate::{Factor, Length, Name};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Melody<'a> {
-    pub node: Node<'a>,
+pub struct Melody<'a, N> {
+    pub node: Node<'a, N>,
     pub length: Length,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Node<'a> {
+pub enum Node<'a, N> {
     Pause,
-    Note(char),
+    Note(N),
     Name(Name),
-    Scale(Factor, &'a Melody<'a>),
-    Sequence(&'a [Melody<'a>]),
-    Stack(&'a [Melody<'a>]),
+    Scale(Factor, &'a Melody<'a, N>),
+    Sequence(&'a [Melody<'a, N>]),
+    Stack(&'a [Melody<'a, N>]),
 }

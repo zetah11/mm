@@ -1,22 +1,26 @@
 use itertools::Itertools;
 
+use crate::note::Note;
 use crate::{implicit, melody, Factor, Length};
 
 use super::{Checker, Error};
 
-impl<'a> Checker<'a> {
-    pub fn lower_melody(&self, melody: &implicit::Melody) -> Result<melody::Melody<'a>, Error> {
+impl<'a, N: Note> Checker<'a, N> {
+    pub fn lower_melody(
+        &self,
+        melody: &implicit::Melody<N>,
+    ) -> Result<melody::Melody<'a, N>, Error> {
         self.lower(Factor::one(), melody)
     }
 
     fn lower(
         &self,
         factor: Factor,
-        melody: &implicit::Melody,
-    ) -> Result<melody::Melody<'a>, Error> {
+        melody: &implicit::Melody<N>,
+    ) -> Result<melody::Melody<'a, N>, Error> {
         let (node, length) = match melody {
             implicit::Melody::Pause => (melody::Node::Pause, Length::one()),
-            implicit::Melody::Note(note) => (melody::Node::Note(*note), Length::one()),
+            implicit::Melody::Note(note) => (melody::Node::Note(note.clone()), Length::one()),
 
             implicit::Melody::Name(name) => {
                 let var = self

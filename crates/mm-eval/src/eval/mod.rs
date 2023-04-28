@@ -5,18 +5,19 @@ use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 
 use crate::melody::{Melody, Node};
+use crate::note::Note;
 use crate::{Factor, Length, Name, Time};
 
 pub const DEFAULT_MAX_DEPTH: usize = 10;
 
-pub struct Evaluator<'a> {
-    program: HashMap<Name, &'a Melody<'a>>,
+pub struct Evaluator<'a, N> {
+    program: HashMap<Name, &'a Melody<'a, N>>,
     entry: Name,
     max_depth: usize,
 }
 
-impl<'a> Evaluator<'a> {
-    pub fn new(program: HashMap<Name, &'a Melody<'a>>, entry: Name) -> Self {
+impl<'a, N: Note> Evaluator<'a, N> {
+    pub fn new(program: HashMap<Name, &'a Melody<'a, N>>, entry: Name) -> Self {
         Self {
             program,
             entry,
@@ -28,7 +29,7 @@ impl<'a> Evaluator<'a> {
         Self { max_depth, ..self }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (char, Time, Length)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (N, Time, Length)> + '_ {
         let melody = *self.program.get(&self.entry).expect("entry exists");
         let start = Time::zero();
         let factor = Factor::one();
@@ -45,30 +46,30 @@ impl<'a> Evaluator<'a> {
     }
 }
 
-struct NextMelody<'a> {
-    melody: &'a Melody<'a>,
+struct NextMelody<'a, N> {
+    melody: &'a Melody<'a, N>,
     depth: usize,
     start: Time,
     factor: Factor,
 }
 
-impl Eq for NextMelody<'_> {
+impl<N> Eq for NextMelody<'_, N> {
     fn assert_receiver_is_total_eq(&self) {}
 }
 
-impl PartialEq for NextMelody<'_> {
+impl<N> PartialEq for NextMelody<'_, N> {
     fn eq(&self, other: &Self) -> bool {
-        self.start.eq(&other.start)
+        self.cmp(other).is_eq()
     }
 }
 
-impl PartialOrd for NextMelody<'_> {
+impl<N> PartialOrd for NextMelody<'_, N> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for NextMelody<'_> {
+impl<N> Ord for NextMelody<'_, N> {
     fn cmp(&self, other: &Self) -> Ordering {
         let Time(this) = self.start;
         let Time(other) = other.start;
@@ -76,13 +77,13 @@ impl Ord for NextMelody<'_> {
     }
 }
 
-struct Iter<'a> {
-    evaluator: &'a Evaluator<'a>,
-    queue: BinaryHeap<NextMelody<'a>>,
+struct Iter<'a, N> {
+    evaluator: &'a Evaluator<'a, N>,
+    queue: BinaryHeap<NextMelody<'a, N>>,
 }
 
-impl<'a> Iterator for Iter<'a> {
-    type Item = (char, Time, Length);
+impl<'a, N: Note> Iterator for Iter<'a, N> {
+    type Item = (N, Time, Length);
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(next) = self.queue.pop() {
@@ -98,7 +99,7 @@ impl<'a> Iterator for Iter<'a> {
                 Node::Pause => {}
                 Node::Note(note) => {
                     let length = next.melody.length * factor;
-                    return Some((*note, start, length));
+                    return Some((note.clone(), start, length));
                 }
 
                 Node::Name(name) => {

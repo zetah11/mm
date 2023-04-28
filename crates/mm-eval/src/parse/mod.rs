@@ -10,24 +10,28 @@ use logos::{Logos, SpannedIter};
 use typed_arena::Arena;
 
 use crate::implicit::Melody;
+use crate::note::Note;
 use crate::Name;
 
 use self::lex::Token;
 
-pub struct Parser<'a, 'src> {
-    arena: &'a Arena<Melody<'a>>,
+pub struct Parser<'a, 'src, N> {
+    arena: &'a Arena<Melody<'a, N>>,
     lexer: SpannedIter<'src, Token<'src>>,
     next: Option<Token<'src>>,
 }
 
-impl<'a, 'src> Parser<'a, 'src> {
-    pub fn parse(arena: &'a Arena<Melody<'a>>, source: &'src str) -> HashMap<Name, &'a Melody<'a>> {
+impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
+    pub fn parse(
+        arena: &'a Arena<Melody<'a, N>>,
+        source: &'src str,
+    ) -> HashMap<Name, &'a Melody<'a, N>> {
         let mut parser = Self::new(arena, source);
         parser.advance();
         parser.parse_program()
     }
 
-    fn new(arena: &'a Arena<Melody<'a>>, source: &'src str) -> Self {
+    fn new(arena: &'a Arena<Melody<'a, N>>, source: &'src str) -> Self {
         Self {
             arena,
             lexer: Token::lexer(source).spanned(),

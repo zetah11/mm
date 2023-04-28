@@ -5,10 +5,11 @@ use rational::Rational;
 use super::lex::Token;
 use super::Parser;
 use crate::implicit::Melody;
+use crate::note::Note;
 use crate::{Factor, Name};
 
-impl<'a> Parser<'a, '_> {
-    pub(super) fn parse_program(&mut self) -> HashMap<Name, &'a Melody<'a>> {
+impl<'a, N: Note> Parser<'a, '_, N> {
+    pub(super) fn parse_program(&mut self) -> HashMap<Name, &'a Melody<'a, N>> {
         let mut program = HashMap::new();
 
         while self.next.is_some() {
@@ -19,7 +20,7 @@ impl<'a> Parser<'a, '_> {
         program
     }
 
-    fn definition(&mut self) -> (Name, &'a Melody<'a>) {
+    fn definition(&mut self) -> (Name, &'a Melody<'a, N>) {
         let name = match self.next {
             Some(Token::Name(name)) => Name(name.into()),
             Some(Token::It) => Self::it(),
@@ -38,11 +39,11 @@ impl<'a> Parser<'a, '_> {
         (name, body)
     }
 
-    fn expression(&mut self) -> Melody<'a> {
+    fn expression(&mut self) -> Melody<'a, N> {
         self.stack()
     }
 
-    fn stack(&mut self) -> Melody<'a> {
+    fn stack(&mut self) -> Melody<'a, N> {
         let mut melodies = vec![self.sequence()];
 
         while self.consume(Token::Pipe).is_some() {
@@ -57,7 +58,7 @@ impl<'a> Parser<'a, '_> {
         }
     }
 
-    fn sequence(&mut self) -> Melody<'a> {
+    fn sequence(&mut self) -> Melody<'a, N> {
         let mut melodies = vec![self.scale()];
 
         while self.consume(Token::Comma).is_some() {
@@ -72,7 +73,7 @@ impl<'a> Parser<'a, '_> {
         }
     }
 
-    fn scale(&mut self) -> Melody<'a> {
+    fn scale(&mut self) -> Melody<'a, N> {
         if self.peek(Token::Number("")).is_some() {
             let by = self.factor();
             let melody = self.simple();
@@ -83,10 +84,13 @@ impl<'a> Parser<'a, '_> {
         }
     }
 
-    fn simple(&mut self) -> Melody<'a> {
+    fn simple(&mut self) -> Melody<'a, N> {
         let melody = match self.next {
-            Some(Token::Name(n)) if n.len() == 1 => Melody::Note(n.chars().next().unwrap()),
-            Some(Token::Name(n)) => Melody::Name(Name(n.into())),
+            Some(Token::Name(n)) => match N::parse(n) {
+                Some(note) => Melody::Note(note),
+                None => Melody::Name(Name(n.into())),
+            },
+
             Some(Token::Pause) => Melody::Pause,
             Some(Token::It) => Melody::Name(Self::it()),
 

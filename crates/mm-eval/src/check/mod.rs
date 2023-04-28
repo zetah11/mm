@@ -12,6 +12,7 @@ use std::collections::{HashMap, HashSet};
 use typed_arena::Arena;
 
 use crate::dependency::dependencies;
+use crate::note::Note;
 use crate::{implicit, melody, topology, Length, Name};
 
 use self::equation::{Equation, Variable};
@@ -22,10 +23,10 @@ pub enum Error {
     UnboundedNotLast,
 }
 
-pub fn check<'a>(
-    arena: &'a Arena<melody::Melody<'a>>,
-    program: &HashMap<Name, &implicit::Melody>,
-) -> Result<HashMap<Name, &'a melody::Melody<'a>>, Vec<Error>> {
+pub fn check<'a, N: Note>(
+    arena: &'a Arena<melody::Melody<'a, N>>,
+    program: &HashMap<Name, &implicit::Melody<N>>,
+) -> Result<HashMap<Name, &'a melody::Melody<'a, N>>, Vec<Error>> {
     let graph = dependencies(program);
     let mut checker = Checker::new(arena);
 
@@ -43,16 +44,16 @@ pub fn check<'a>(
     }
 }
 
-struct Checker<'a> {
-    arena: &'a Arena<melody::Melody<'a>>,
-    defs: HashMap<Name, &'a melody::Melody<'a>>,
+struct Checker<'a, N> {
+    arena: &'a Arena<melody::Melody<'a, N>>,
+    defs: HashMap<Name, &'a melody::Melody<'a, N>>,
     context: HashMap<Name, Variable>,
     lengths: HashMap<Variable, Length>,
     counter: usize,
 }
 
-impl<'a> Checker<'a> {
-    pub fn new(arena: &'a Arena<melody::Melody<'a>>) -> Self {
+impl<'a, N: Note> Checker<'a, N> {
+    pub fn new(arena: &'a Arena<melody::Melody<'a, N>>) -> Self {
         Self {
             arena,
             defs: HashMap::new(),
@@ -64,7 +65,7 @@ impl<'a> Checker<'a> {
 
     pub fn check_component(
         &mut self,
-        program: &HashMap<Name, &implicit::Melody>,
+        program: &HashMap<Name, &implicit::Melody<N>>,
         names: HashSet<&Name>,
     ) -> Result<(), Error> {
         for name in names.iter() {

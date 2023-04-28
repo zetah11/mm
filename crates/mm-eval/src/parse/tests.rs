@@ -8,7 +8,7 @@ use crate::{Factor, Name};
 
 use super::Parser;
 
-fn check_ok(expected: HashMap<Name, &Melody>, source: &str) {
+fn check_ok(expected: HashMap<Name, &Melody<char>>, source: &str) {
     let arena = Arena::new();
     let actual = Parser::parse(&arena, source);
     assert_eq!(expected, actual);

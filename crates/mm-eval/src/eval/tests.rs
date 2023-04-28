@@ -7,7 +7,7 @@ use crate::{Factor, Length, Name, Time};
 
 use super::Evaluator;
 
-fn check(expected: Vec<(char, Time, Length)>, program: HashMap<Name, &Melody>) {
+fn check(expected: Vec<(char, Time, Length)>, program: HashMap<Name, &Melody<char>>) {
     let eval = Evaluator::new(program, Name("it".into()));
     let actual: Vec<_> = eval.iter().collect();
     assert_eq!(expected, actual);

@@ -23,7 +23,7 @@ pub enum Term {
     Variable(Factor, Variable),
 }
 
-impl Checker<'_> {
+impl<N> Checker<'_, N> {
     /// Create a fresh and unique length variable.
     pub fn fresh(&mut self) -> Variable {
         let var = Variable(self.counter);
