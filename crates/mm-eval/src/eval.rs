@@ -78,7 +78,7 @@ impl<'a> Iterator for Iter<'a> {
             match &next.melody.node {
                 Node::Pause => {}
                 Node::Note(note) => {
-                    let length = Length(next.melody.length.0 * factor.0);
+                    let length = next.melody.length * factor;
                     return Some((*note, start, length));
                 }
 
@@ -115,7 +115,11 @@ impl<'a> Iterator for Iter<'a> {
                             factor,
                         });
 
-                        start = Time(start.0 + factor.0 * length.0);
+                        if matches!(length, Length::Unbounded) {
+                            break;
+                        }
+
+                        start = start + factor * length;
                     }
                 }
 

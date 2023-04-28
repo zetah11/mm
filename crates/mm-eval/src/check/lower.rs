@@ -1,13 +1,19 @@
+use itertools::Itertools;
+
 use crate::{implicit, melody, Factor, Length};
 
-use super::Checker;
+use super::{Checker, Error};
 
 impl<'a> Checker<'a> {
-    pub fn lower_melody(&self, melody: &implicit::Melody) -> melody::Melody<'a> {
+    pub fn lower_melody(&self, melody: &implicit::Melody) -> Result<melody::Melody<'a>, Error> {
         self.lower(Factor::one(), melody)
     }
 
-    fn lower(&self, factor: Factor, melody: &implicit::Melody) -> melody::Melody<'a> {
+    fn lower(
+        &self,
+        factor: Factor,
+        melody: &implicit::Melody,
+    ) -> Result<melody::Melody<'a>, Error> {
         let (node, length) = match melody {
             implicit::Melody::Pause => (melody::Node::Pause, Length::one()),
             implicit::Melody::Note(note) => (melody::Node::Note(*note), Length::one()),
@@ -22,7 +28,7 @@ impl<'a> Checker<'a> {
             }
 
             implicit::Melody::Scale(by, melody) => {
-                let melody = self.lower(*by * factor, melody);
+                let melody = self.lower(*by * factor, melody)?;
                 let melody = self.arena.alloc(melody);
                 let length = *by * melody.length;
                 (melody::Node::Scale(*by, melody), length)
@@ -32,7 +38,13 @@ impl<'a> Checker<'a> {
                 let melodies: Vec<_> = melodies
                     .iter()
                     .map(|melody| self.lower(factor, melody))
-                    .collect();
+                    .try_collect()?;
+
+                for melody in melodies.iter().rev().skip(1) {
+                    if melody.length.is_unbounded() {
+                        return Err(Error::UnboundedNotLast);
+                    }
+                }
 
                 let melodies = self.arena.alloc_extend(melodies);
                 let length = melodies.iter().map(|melody| melody.length).sum();
@@ -44,7 +56,7 @@ impl<'a> Checker<'a> {
                 let melodies: Vec<_> = melodies
                     .iter()
                     .map(|melody| self.lower(factor, melody))
-                    .collect();
+                    .try_collect()?;
 
                 let melodies = self.arena.alloc_extend(melodies);
                 let length = melodies
@@ -57,6 +69,6 @@ impl<'a> Checker<'a> {
             }
         };
 
-        melody::Melody { node, length }
+        Ok(melody::Melody { node, length })
     }
 }

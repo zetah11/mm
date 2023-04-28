@@ -5,10 +5,19 @@ use typed_arena::Arena;
 
 use crate::{implicit, melody, Factor, Length, Name};
 
+use super::Error;
+
 fn check_ok(expected: HashMap<Name, &melody::Melody>, program: HashMap<Name, &implicit::Melody>) {
     let arena = Arena::new();
     let actual = super::check(&arena, &program);
     assert_eq!(Ok(expected), actual);
+}
+
+fn check_err(expected: Vec<Error>, program: HashMap<Name, &implicit::Melody>) {
+    let arena = Arena::new();
+    let actual = super::check(&arena, &program);
+
+    assert_eq!(Err(expected), actual);
 }
 
 #[test]
@@ -52,7 +61,7 @@ fn scaled_note() {
 
     let melody = melody::Melody {
         node: melody::Node::Scale(Factor(Rational::new(1, 2)), &melody),
-        length: Length(Rational::new(1, 2)),
+        length: Length::Bounded(Rational::new(1, 2)),
     };
 
     let expected = HashMap::from([(Name("x".into()), &melody)]);
@@ -81,7 +90,7 @@ fn pause_note_sequence() {
 
     let melody = melody::Melody {
         node: melody::Node::Sequence(&seq),
-        length: Length(Rational::integer(2)),
+        length: Length::Bounded(Rational::integer(2)),
     };
 
     let expected = HashMap::from([(Name("x".into()), &melody)]);
@@ -146,7 +155,7 @@ fn a_name() {
     let b = [pause, to_a];
     let b = melody::Melody {
         node: melody::Node::Sequence(&b),
-        length: Length(Rational::integer(2)),
+        length: Length::Bounded(Rational::integer(2)),
     };
 
     let expected = HashMap::from([(Name("a".into()), &a), (Name("b".into()), &b)]);
@@ -172,7 +181,7 @@ fn fractal() {
 
     let to_a = melody::Melody {
         node: melody::Node::Name(Name("a".into())),
-        length: Length(Rational::integer(2)),
+        length: Length::Bounded(Rational::integer(2)),
     };
 
     let scale = melody::Melody {
@@ -183,10 +192,62 @@ fn fractal() {
     let melody = [note, scale];
     let melody = melody::Melody {
         node: melody::Node::Sequence(&melody),
-        length: Length(Rational::integer(2)),
+        length: Length::Bounded(Rational::integer(2)),
     };
 
     let expected = HashMap::from([(Name("a".into()), &melody)]);
 
     check_ok(expected, program);
+}
+
+#[test]
+fn infinite() {
+    let a = implicit::Melody::Note('a');
+    let b = implicit::Melody::Note('b');
+    let to_x = implicit::Melody::Name(Name("x".into()));
+
+    let melody = [a, b, to_x];
+    let melody = implicit::Melody::Sequence(&melody);
+
+    let program = HashMap::from([(Name("x".into()), &melody)]);
+
+    let a = melody::Melody {
+        node: melody::Node::Note('a'),
+        length: Length::one(),
+    };
+
+    let b = melody::Melody {
+        node: melody::Node::Note('b'),
+        length: Length::one(),
+    };
+
+    let to_x = melody::Melody {
+        node: melody::Node::Name(Name("x".into())),
+        length: Length::Unbounded,
+    };
+
+    let melody = [a, b, to_x];
+    let melody = melody::Melody {
+        node: melody::Node::Sequence(&melody),
+        length: Length::Unbounded,
+    };
+
+    let expected = HashMap::from([(Name("x".into()), &melody)]);
+
+    check_ok(expected, program);
+}
+
+#[test]
+fn wrong_unbounded() {
+    let a = implicit::Melody::Note('a');
+    let to_x = implicit::Melody::Name(Name("x".into()));
+    let b = implicit::Melody::Note('b');
+
+    let melody = [a, to_x, b];
+    let melody = implicit::Melody::Sequence(&melody);
+
+    let program = HashMap::from([(Name("x".into()), &melody)]);
+
+    let expected = vec![Error::UnboundedNotLast];
+    check_err(expected, program);
 }

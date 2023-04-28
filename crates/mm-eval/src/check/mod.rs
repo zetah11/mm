@@ -19,7 +19,7 @@ use self::equation::{Equation, Variable};
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     UnknownName(String),
-    // ...
+    UnboundedNotLast,
 }
 
 pub fn check<'a>(
@@ -95,7 +95,7 @@ impl<'a> Checker<'a> {
                 .get(name)
                 .expect("unknown names are reported earlier");
 
-            let melody = self.lower_melody(melody);
+            let melody = self.lower_melody(melody)?;
             let melody = self.arena.alloc(melody);
             debug_assert!(self.defs.insert(name.clone(), melody).is_none());
         }
