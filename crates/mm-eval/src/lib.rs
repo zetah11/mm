@@ -2,6 +2,7 @@ pub mod check;
 pub mod eval;
 pub mod implicit;
 pub mod melody;
+pub mod parse;
 
 mod dependency;
 mod topology;
