@@ -1,3 +1,4 @@
+use mm_eval::span::Span;
 use mm_eval::{Length, Time};
 pub use pitch::Pitch;
 
@@ -15,8 +16,8 @@ use self::channel::write_channel;
 const TICKS_PER_BEAT: usize = 128;
 
 /// Write the given notes to a MIDI file at the given path.
-pub fn write(
-    notes: impl Iterator<Item = (Pitch, Time, Length)>,
+pub fn write<'src>(
+    notes: impl Iterator<Item = (Pitch, Span<'src>, Time, Length)>,
     to: impl AsRef<Path>,
 ) -> Result<(), io::Error> {
     let mut track = vec![TrackEvent {

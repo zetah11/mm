@@ -6,10 +6,11 @@ use super::lex::Token;
 use super::Parser;
 use crate::implicit::Melody;
 use crate::note::Note;
+use crate::span::Span;
 use crate::{Factor, Name};
 
-impl<'a, N: Note> Parser<'a, '_, N> {
-    pub(super) fn parse_program(&mut self) -> HashMap<Name, &'a Melody<'a, N>> {
+impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
+    pub(super) fn parse_program(&mut self) -> HashMap<Name, &'a Melody<'a, 'src, N>> {
         let mut program = HashMap::new();
 
         while self.next.is_some() {
@@ -20,10 +21,9 @@ impl<'a, N: Note> Parser<'a, '_, N> {
         program
     }
 
-    fn definition(&mut self) -> (Name, &'a Melody<'a, N>) {
+    fn definition(&mut self) -> (Name, &'a Melody<'a, 'src, N>) {
         let name = match self.next {
-            Some(Token::Name(name)) => Name(name.into()),
-            Some(Token::It) => Self::it(),
+            Some((Token::Name(name), _)) => Name(name.into()),
 
             _ => todo!(),
         };
@@ -39,11 +39,11 @@ impl<'a, N: Note> Parser<'a, '_, N> {
         (name, body)
     }
 
-    fn expression(&mut self) -> Melody<'a, N> {
+    fn expression(&mut self) -> Melody<'a, 'src, N> {
         self.stack()
     }
 
-    fn stack(&mut self) -> Melody<'a, N> {
+    fn stack(&mut self) -> Melody<'a, 'src, N> {
         let mut melodies = vec![self.sequence()];
 
         while self.consume(Token::Pipe).is_some() {
@@ -58,7 +58,7 @@ impl<'a, N: Note> Parser<'a, '_, N> {
         }
     }
 
-    fn sequence(&mut self) -> Melody<'a, N> {
+    fn sequence(&mut self) -> Melody<'a, 'src, N> {
         let mut melodies = vec![self.scale()];
 
         while self.consume(Token::Comma).is_some() {
@@ -73,28 +73,27 @@ impl<'a, N: Note> Parser<'a, '_, N> {
         }
     }
 
-    fn scale(&mut self) -> Melody<'a, N> {
+    fn scale(&mut self) -> Melody<'a, 'src, N> {
         if self.peek(Token::Number("")).is_some() {
-            let by = self.factor();
+            let (by, factor_span) = self.factor();
             let melody = self.simple();
             let melody = self.arena.alloc(melody);
-            Melody::Scale(by, melody)
+            Melody::Scale(factor_span, by, melody)
         } else {
             self.simple()
         }
     }
 
-    fn simple(&mut self) -> Melody<'a, N> {
+    fn simple(&mut self) -> Melody<'a, 'src, N> {
         let melody = match self.next {
-            Some(Token::Name(n)) => match N::parse(n) {
-                Some(note) => Melody::Note(note),
-                None => Melody::Name(Name(n.into())),
+            Some((Token::Name(n), span)) => match N::parse(n) {
+                Some(note) => Melody::Note(span, note),
+                None => Melody::Name(span, Name(n.into())),
             },
 
-            Some(Token::Pause) => Melody::Pause,
-            Some(Token::It) => Melody::Name(Self::it()),
+            Some((Token::Pause, span)) => Melody::Pause(span),
 
-            Some(Token::LeftParen) => {
+            Some((Token::LeftParen, _)) => {
                 self.advance();
                 let melody = self.expression();
 
@@ -112,20 +111,21 @@ impl<'a, N: Note> Parser<'a, '_, N> {
         melody
     }
 
-    fn factor(&mut self) -> Factor {
-        let first = match self.next {
-            Some(Token::Number(s)) => Self::parse_int(s),
-
+    fn factor(&mut self) -> (Factor, Span<'src>) {
+        let (first, mut span) = match self.next {
+            Some((Token::Number(s), span)) => (Self::parse_int(s), span),
             _ => unreachable!(),
         };
 
         self.advance();
 
         let second = if self.consume(Token::Slash).is_some() {
-            let num = match self.next {
-                Some(Token::Number(s)) => Self::parse_int(s),
+            let (num, second_span) = match self.next {
+                Some((Token::Number(s), span)) => (Self::parse_int(s), span),
                 _ => todo!(),
             };
+
+            span = span + second_span;
 
             self.advance();
             num
@@ -133,7 +133,7 @@ impl<'a, N: Note> Parser<'a, '_, N> {
             1
         };
 
-        Factor(Rational::new(first, second))
+        (Factor(Rational::new(first, second)), span)
     }
 
     fn parse_int(s: &str) -> i128 {
@@ -156,9 +156,5 @@ impl<'a, N: Note> Parser<'a, '_, N> {
             res = res * 10 + v;
         }
         res
-    }
-
-    fn it() -> Name {
-        Name("it".into())
     }
 }

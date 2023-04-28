@@ -1,7 +1,9 @@
 Correctness
 [ ] hide the inner rationals in Factor, Time, and Length, and enforce them
     always being non-negative
+[ ] bigrationals instead of fixed-size rationals
 
 Errors
-[ ] span information
+[x] span information
 [ ] report multiple checking errors for the same definition
+[ ] report parse errors

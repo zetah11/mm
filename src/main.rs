@@ -1,6 +1,6 @@
 use mm_eval::eval::Evaluator;
-use mm_eval::{CompilerState, Name};
-use mm_media::midi::{self, Pitch};
+use mm_eval::{compile, Name};
+use mm_media::midi;
 use typed_arena::Arena;
 
 const MAX_DEPTH: usize = 20;
@@ -16,9 +16,7 @@ fn main() {
     let implicits = Arena::new();
     let explicits = Arena::new();
 
-    let state: CompilerState<Pitch> = CompilerState::new(&implicits, &explicits);
-
-    let program = state.compile(SOURCE).unwrap();
+    let program = compile(&implicits, &explicits, SOURCE).unwrap();
     let name = Name("it".into());
 
     let eval = Evaluator::new(program, name).with_max_depth(MAX_DEPTH);

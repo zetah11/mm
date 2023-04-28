@@ -9,9 +9,6 @@ pub enum Token<'src> {
     #[regex(r"[0-9][0-9_]*", |lex| lex.slice())]
     Number(&'src str),
 
-    #[token("it")]
-    It,
-
     #[token("<>")]
     Pause,
 

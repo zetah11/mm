@@ -5,17 +5,17 @@ use crate::implicit::Melody;
 use crate::note::Note;
 use crate::{Factor, Length};
 
-impl<N: Note> Checker<'_, N> {
+impl<N: Note> Checker<'_, '_, N> {
     pub fn build_equation(&self, melody: &Melody<N>) -> Vec<Sum> {
         self.build(Factor::one(), melody)
     }
 
     fn build(&self, factor: Factor, melody: &Melody<N>) -> Vec<Sum> {
         match melody {
-            Melody::Pause => Self::constant(factor * Length::one()),
-            Melody::Note(_) => Self::constant(factor * Length::one()),
+            Melody::Pause(_) => Self::constant(factor * Length::one()),
+            Melody::Note(_, _) => Self::constant(factor * Length::one()),
 
-            Melody::Name(name) => Self::variable(
+            Melody::Name(_, name) => Self::variable(
                 factor,
                 *self
                     .context
@@ -23,7 +23,7 @@ impl<N: Note> Checker<'_, N> {
                     .expect("all names are bound to a var before use"),
             ),
 
-            Melody::Scale(scale, melody) => {
+            Melody::Scale(_, scale, melody) => {
                 let factor = factor * *scale;
                 self.build(factor, melody)
             }

@@ -4,6 +4,7 @@ use rational::extras::r;
 use typed_arena::Arena;
 
 use crate::implicit::Melody;
+use crate::span::span_in;
 use crate::{Factor, Name};
 
 use super::Parser;
@@ -16,13 +17,12 @@ fn check_ok(expected: HashMap<Name, &Melody<char>>, source: &str) {
 
 #[test]
 fn simple_sequence() {
-    let source = r#"
-        it = A, B, C
-    "#;
+    let source = r#"it = A, B, C"#;
+    let s = span_in(source);
 
-    let a = Melody::Note('A');
-    let b = Melody::Note('B');
-    let c = Melody::Note('C');
+    let a = Melody::Note(s(5, 6), 'A');
+    let b = Melody::Note(s(8, 9), 'B');
+    let c = Melody::Note(s(11, 12), 'C');
 
     let sequence = [a, b, c];
     let sequence = Melody::Sequence(&sequence);
@@ -34,20 +34,19 @@ fn simple_sequence() {
 
 #[test]
 fn some_scales() {
-    let source = r#"
-        it = 1/2 A, 2/3 (B | C)
-    "#;
+    let source = r#"it = 1/2 A, 2/3 (B | C)"#;
+    let s = span_in(source);
 
-    let a = Melody::Note('A');
-    let b = Melody::Note('B');
-    let c = Melody::Note('C');
+    let a = Melody::Note(s(9, 10), 'A');
+    let b = Melody::Note(s(17, 18), 'B');
+    let c = Melody::Note(s(21, 22), 'C');
 
-    let first = Melody::Scale(Factor(r(1, 2)), &a);
+    let first = Melody::Scale(s(5, 8), Factor(r(1, 2)), &a);
 
     let stack = [b, c];
     let stack = Melody::Stack(&stack);
 
-    let second = Melody::Scale(Factor(r(2, 3)), &stack);
+    let second = Melody::Scale(s(12, 15), Factor(r(2, 3)), &stack);
 
     let sequence = [first, second];
     let sequence = Melody::Sequence(&sequence);
@@ -64,19 +63,25 @@ fn mutual() {
         at = B, 1/3 at, 1/2 it
     "#;
 
-    let a = Melody::Note('A');
-    let b = Melody::Note('B');
+    let s = span_in(source);
 
-    let to_it = Melody::Name(Name("it".into()));
-    let to_at = Melody::Name(Name("at".into()));
+    let a = Melody::Note(s(14, 15), 'A');
+    let b = Melody::Note(s(45, 46), 'B');
 
-    let half_it = Melody::Scale(Factor(r(1, 2)), &to_it);
-    let third_at = Melody::Scale(Factor(r(1, 3)), &to_at);
+    let to_it1 = Melody::Name(s(21, 23), Name("it".into()));
+    let to_it2 = Melody::Name(s(60, 62), Name("it".into()));
+    let to_at1 = Melody::Name(s(29, 31), Name("at".into()));
+    let to_at2 = Melody::Name(s(52, 54), Name("at".into()));
 
-    let it = [a, half_it.clone(), third_at.clone()];
+    let half_it1 = Melody::Scale(s(17, 20), Factor(r(1, 2)), &to_it1);
+    let half_it2 = Melody::Scale(s(56, 59), Factor(r(1, 2)), &to_it2);
+    let third_at1 = Melody::Scale(s(25, 28), Factor(r(1, 3)), &to_at1);
+    let third_at2 = Melody::Scale(s(48, 51), Factor(r(1, 3)), &to_at2);
+
+    let it = [a, half_it1, third_at1];
     let it = Melody::Sequence(&it);
 
-    let at = [b, third_at, half_it];
+    let at = [b, third_at2, half_it2];
     let at = Melody::Sequence(&at);
 
     let expected = HashMap::from([(Name("it".into()), &it), (Name("at".into()), &at)]);

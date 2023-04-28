@@ -3,6 +3,7 @@ use std::collections::BinaryHeap;
 
 use midly::num::{u28, u4, u7};
 use midly::{MidiMessage, TrackEvent, TrackEventKind};
+use mm_eval::span::Span;
 use mm_eval::{Length, Time};
 use rational::Rational;
 
@@ -12,15 +13,15 @@ use super::Pitch;
 /// channel.
 ///
 /// `ticks_per_beat` determines how many ticks a note of length `1` should last.
-pub fn write_channel(
-    notes: impl Iterator<Item = (Pitch, Time, Length)>,
+pub fn write_channel<'src>(
+    notes: impl Iterator<Item = (Pitch, Span<'src>, Time, Length)>,
     ticks_per_beat: usize,
     channel: u4,
     track: &mut Vec<TrackEvent>,
 ) {
     let mut events = BinaryHeap::new();
 
-    for (note, start, length) in notes {
+    for (note, _, start, length) in notes {
         let on = PitchEvent {
             at: start,
             kind: PitchEventKind::On(note),

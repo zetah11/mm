@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use rational::extras::r;
 use typed_arena::Arena;
 
+use crate::span::span;
 use crate::{implicit, melody, Factor, Length, Name};
 
 use super::Error;
@@ -25,11 +26,12 @@ fn check_err(expected: Vec<Error>, program: HashMap<Name, &implicit::Melody<char
 
 #[test]
 fn lone_pause() {
-    let melody = implicit::Melody::Pause;
+    let melody = implicit::Melody::Pause(span());
     let program = HashMap::from([(Name("x".into()), &melody)]);
 
     let melody = melody::Melody {
         node: melody::Node::Pause,
+        span: span(),
         length: Length::one(),
     };
 
@@ -39,11 +41,12 @@ fn lone_pause() {
 
 #[test]
 fn lone_note() {
-    let melody = implicit::Melody::Note('a');
+    let melody = implicit::Melody::Note(span(), 'a');
     let program = HashMap::from([(Name("x".into()), &melody)]);
 
     let melody = melody::Melody {
         node: melody::Node::Note('a'),
+        span: span(),
         length: Length::one(),
     };
 
@@ -53,17 +56,19 @@ fn lone_note() {
 
 #[test]
 fn scaled_note() {
-    let melody = implicit::Melody::Note('a');
-    let melody = implicit::Melody::Scale(Factor(r(1, 2)), &melody);
+    let melody = implicit::Melody::Note(span(), 'a');
+    let melody = implicit::Melody::Scale(span(), Factor(r(1, 2)), &melody);
     let program = HashMap::from([(Name("x".into()), &melody)]);
 
     let melody = melody::Melody {
         node: melody::Node::Note('a'),
+        span: span(),
         length: Length::one(),
     };
 
     let melody = melody::Melody {
         node: melody::Node::Scale(Factor(r(1, 2)), &melody),
+        span: span(),
         length: Length::Bounded(r(1, 2)),
     };
 
@@ -73,19 +78,21 @@ fn scaled_note() {
 
 #[test]
 fn pause_note_sequence() {
-    let first = implicit::Melody::Pause;
-    let second = implicit::Melody::Note('a');
+    let first = implicit::Melody::Pause(span());
+    let second = implicit::Melody::Note(span(), 'a');
     let seq = [first, second];
     let melody = implicit::Melody::Sequence(&seq);
     let program = HashMap::from([(Name("x".into()), &melody)]);
 
     let first = melody::Melody {
         node: melody::Node::Pause,
+        span: span(),
         length: Length::one(),
     };
 
     let second = melody::Melody {
         node: melody::Node::Note('a'),
+        span: span(),
         length: Length::one(),
     };
 
@@ -93,6 +100,7 @@ fn pause_note_sequence() {
 
     let melody = melody::Melody {
         node: melody::Node::Sequence(&seq),
+        span: span(),
         length: Length::Bounded(r(2, 1)),
     };
 
@@ -102,19 +110,21 @@ fn pause_note_sequence() {
 
 #[test]
 fn pause_note_stack() {
-    let first = implicit::Melody::Pause;
-    let second = implicit::Melody::Note('a');
+    let first = implicit::Melody::Pause(span());
+    let second = implicit::Melody::Note(span(), 'a');
     let seq = [first, second];
     let melody = implicit::Melody::Stack(&seq);
     let program = HashMap::from([(Name("x".into()), &melody)]);
 
     let first = melody::Melody {
         node: melody::Node::Pause,
+        span: span(),
         length: Length::one(),
     };
 
     let second = melody::Melody {
         node: melody::Node::Note('a'),
+        span: span(),
         length: Length::one(),
     };
 
@@ -122,6 +132,7 @@ fn pause_note_stack() {
 
     let melody = melody::Melody {
         node: melody::Node::Stack(&seq),
+        span: span(),
         length: Length::one(),
     };
 
@@ -131,9 +142,9 @@ fn pause_note_stack() {
 
 #[test]
 fn a_name() {
-    let a = implicit::Melody::Note('a');
-    let pause = implicit::Melody::Pause;
-    let to_a = implicit::Melody::Name(Name("a".into()));
+    let a = implicit::Melody::Note(span(), 'a');
+    let pause = implicit::Melody::Pause(span());
+    let to_a = implicit::Melody::Name(span(), Name("a".into()));
 
     let b = [pause, to_a];
     let b = implicit::Melody::Sequence(&b);
@@ -142,22 +153,26 @@ fn a_name() {
 
     let a = melody::Melody {
         node: melody::Node::Note('a'),
+        span: span(),
         length: Length::one(),
     };
 
     let pause = melody::Melody {
         node: melody::Node::Pause,
+        span: span(),
         length: Length::one(),
     };
 
     let to_a = melody::Melody {
         node: melody::Node::Name(Name("a".into())),
+        span: span(),
         length: Length::one(),
     };
 
     let b = [pause, to_a];
     let b = melody::Melody {
         node: melody::Node::Sequence(&b),
+        span: span(),
         length: Length::Bounded(r(2, 1)),
     };
 
@@ -168,9 +183,9 @@ fn a_name() {
 
 #[test]
 fn fractal() {
-    let note = implicit::Melody::Note('a');
-    let to_a = implicit::Melody::Name(Name("a".into()));
-    let scale = implicit::Melody::Scale(Factor(r(1, 2)), &to_a);
+    let note = implicit::Melody::Note(span(), 'a');
+    let to_a = implicit::Melody::Name(span(), Name("a".into()));
+    let scale = implicit::Melody::Scale(span(), Factor(r(1, 2)), &to_a);
 
     let melody = [note, scale];
     let melody = implicit::Melody::Sequence(&melody);
@@ -179,22 +194,26 @@ fn fractal() {
 
     let note = melody::Melody {
         node: melody::Node::Note('a'),
+        span: span(),
         length: Length::one(),
     };
 
     let to_a = melody::Melody {
         node: melody::Node::Name(Name("a".into())),
+        span: span(),
         length: Length::Bounded(r(2, 1)),
     };
 
     let scale = melody::Melody {
         node: melody::Node::Scale(Factor(r(1, 2)), &to_a),
+        span: span(),
         length: Length::one(),
     };
 
     let melody = [note, scale];
     let melody = melody::Melody {
         node: melody::Node::Sequence(&melody),
+        span: span(),
         length: Length::Bounded(r(2, 1)),
     };
 
@@ -205,9 +224,9 @@ fn fractal() {
 
 #[test]
 fn infinite() {
-    let a = implicit::Melody::Note('a');
-    let b = implicit::Melody::Note('b');
-    let to_x = implicit::Melody::Name(Name("x".into()));
+    let a = implicit::Melody::Note(span(), 'a');
+    let b = implicit::Melody::Note(span(), 'b');
+    let to_x = implicit::Melody::Name(span(), Name("x".into()));
 
     let melody = [a, b, to_x];
     let melody = implicit::Melody::Sequence(&melody);
@@ -216,22 +235,26 @@ fn infinite() {
 
     let a = melody::Melody {
         node: melody::Node::Note('a'),
+        span: span(),
         length: Length::one(),
     };
 
     let b = melody::Melody {
         node: melody::Node::Note('b'),
+        span: span(),
         length: Length::one(),
     };
 
     let to_x = melody::Melody {
         node: melody::Node::Name(Name("x".into())),
+        span: span(),
         length: Length::Unbounded,
     };
 
     let melody = [a, b, to_x];
     let melody = melody::Melody {
         node: melody::Node::Sequence(&melody),
+        span: span(),
         length: Length::Unbounded,
     };
 
@@ -242,9 +265,9 @@ fn infinite() {
 
 #[test]
 fn wrong_unbounded() {
-    let a = implicit::Melody::Note('a');
-    let to_x = implicit::Melody::Name(Name("x".into()));
-    let b = implicit::Melody::Note('b');
+    let a = implicit::Melody::Note(span(), 'a');
+    let to_x = implicit::Melody::Name(span(), Name("x".into()));
+    let b = implicit::Melody::Note(span(), 'b');
 
     let melody = [a, to_x, b];
     let melody = implicit::Melody::Sequence(&melody);

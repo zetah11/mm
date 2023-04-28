@@ -4,11 +4,12 @@ pub mod implicit;
 pub mod melody;
 pub mod note;
 pub mod parse;
+pub mod span;
 
-pub use crate::state::CompilerState;
+pub use crate::compile::compile;
 pub use crate::time::{Factor, Length, Time};
 
-mod state;
+mod compile;
 mod time;
 
 mod dependency;

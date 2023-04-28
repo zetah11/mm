@@ -23,10 +23,10 @@ pub enum Error {
     UnboundedNotLast,
 }
 
-pub fn check<'a, N: Note>(
-    arena: &'a Arena<melody::Melody<'a, N>>,
-    program: &HashMap<Name, &implicit::Melody<N>>,
-) -> Result<HashMap<Name, &'a melody::Melody<'a, N>>, Vec<Error>> {
+pub fn check<'a, 'src, N: Note>(
+    arena: &'a Arena<melody::Melody<'a, 'src, N>>,
+    program: &HashMap<Name, &implicit::Melody<'_, 'src, N>>,
+) -> Result<HashMap<Name, &'a melody::Melody<'a, 'src, N>>, Vec<Error>> {
     let graph = dependencies(program);
     let mut checker = Checker::new(arena);
 
@@ -44,16 +44,16 @@ pub fn check<'a, N: Note>(
     }
 }
 
-struct Checker<'a, N> {
-    arena: &'a Arena<melody::Melody<'a, N>>,
-    defs: HashMap<Name, &'a melody::Melody<'a, N>>,
+struct Checker<'a, 'src, N> {
+    arena: &'a Arena<melody::Melody<'a, 'src, N>>,
+    defs: HashMap<Name, &'a melody::Melody<'a, 'src, N>>,
     context: HashMap<Name, Variable>,
     lengths: HashMap<Variable, Length>,
     counter: usize,
 }
 
-impl<'a, N: Note> Checker<'a, N> {
-    pub fn new(arena: &'a Arena<melody::Melody<'a, N>>) -> Self {
+impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
+    pub fn new(arena: &'a Arena<melody::Melody<'a, 'src, N>>) -> Self {
         Self {
             arena,
             defs: HashMap::new(),
@@ -65,7 +65,7 @@ impl<'a, N: Note> Checker<'a, N> {
 
     pub fn check_component(
         &mut self,
-        program: &HashMap<Name, &implicit::Melody<N>>,
+        program: &HashMap<Name, &implicit::Melody<'_, 'src, N>>,
         names: HashSet<&Name>,
     ) -> Result<(), Error> {
         for name in names.iter() {

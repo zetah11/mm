@@ -20,13 +20,13 @@ pub fn dependencies<N>(program: &HashMap<Name, &Melody<N>>) -> HashMap<Name, Has
 /// Add the names referred to by `melody` to `within`.
 fn compute<N>(within: &mut HashSet<Name>, melody: &Melody<N>) {
     match melody {
-        Melody::Pause | Melody::Note(_) => {}
+        Melody::Pause(_) | Melody::Note(..) => {}
 
-        Melody::Name(name) => {
+        Melody::Name(_, name) => {
             within.insert(name.clone());
         }
 
-        Melody::Scale(_, melody) => compute(within, melody),
+        Melody::Scale(_, _, melody) => compute(within, melody),
 
         Melody::Sequence(melodies) | Melody::Stack(melodies) => {
             for melody in *melodies {
@@ -41,15 +41,16 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use crate::implicit::Melody;
+    use crate::span::span;
     use crate::Name;
 
     use super::dependencies;
 
     #[test]
     fn disjoint() {
-        let a = Melody::Pause;
-        let b = Melody::Note('b');
-        let c = Melody::Note('c');
+        let a = Melody::Pause(span());
+        let b = Melody::Note(span(), 'b');
+        let c = Melody::Note(span(), 'c');
 
         let seq = [b, c];
         let seq = Melody::Sequence(&seq);
@@ -68,9 +69,9 @@ mod tests {
 
     #[test]
     fn chain() {
-        let a: Melody<char> = Melody::Pause;
-        let b = Melody::Name(Name("a".into()));
-        let c = Melody::Name(Name("b".into()));
+        let a: Melody<char> = Melody::Pause(span());
+        let b = Melody::Name(span(), Name("a".into()));
+        let c = Melody::Name(span(), Name("b".into()));
 
         let program = HashMap::from([
             (Name("a".into()), &a),
@@ -91,10 +92,10 @@ mod tests {
 
     #[test]
     fn fork_join() {
-        let a: Melody<char> = Melody::Pause;
-        let to_a = Melody::Name(Name("a".into()));
-        let to_b = Melody::Name(Name("b".into()));
-        let to_c = Melody::Name(Name("c".into()));
+        let a: Melody<char> = Melody::Pause(span());
+        let to_a = Melody::Name(span(), Name("a".into()));
+        let to_b = Melody::Name(span(), Name("b".into()));
+        let to_c = Melody::Name(span(), Name("c".into()));
 
         let seq = [to_b, to_c];
         let d = Melody::Sequence(&seq);
@@ -123,9 +124,9 @@ mod tests {
 
     #[test]
     fn cycles() {
-        let a: Melody<char> = Melody::Name(Name("c".into()));
-        let b = Melody::Name(Name("a".into()));
-        let c = Melody::Name(Name("b".into()));
+        let a: Melody<char> = Melody::Name(span(), Name("c".into()));
+        let b = Melody::Name(span(), Name("a".into()));
+        let c = Melody::Name(span(), Name("b".into()));
 
         let program = HashMap::from([
             (Name("a".into()), &a),

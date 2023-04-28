@@ -6,18 +6,19 @@ use std::collections::{BinaryHeap, HashMap};
 
 use crate::melody::{Melody, Node};
 use crate::note::Note;
+use crate::span::Span;
 use crate::{Factor, Length, Name, Time};
 
 pub const DEFAULT_MAX_DEPTH: usize = 10;
 
-pub struct Evaluator<'a, N> {
-    program: HashMap<Name, &'a Melody<'a, N>>,
+pub struct Evaluator<'a, 'src, N> {
+    program: HashMap<Name, &'a Melody<'a, 'src, N>>,
     entry: Name,
     max_depth: usize,
 }
 
-impl<'a, N: Note> Evaluator<'a, N> {
-    pub fn new(program: HashMap<Name, &'a Melody<'a, N>>, entry: Name) -> Self {
+impl<'a, 'src, N: Note> Evaluator<'a, 'src, N> {
+    pub fn new(program: HashMap<Name, &'a Melody<'a, 'src, N>>, entry: Name) -> Self {
         Self {
             program,
             entry,
@@ -29,7 +30,7 @@ impl<'a, N: Note> Evaluator<'a, N> {
         Self { max_depth, ..self }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (N, Time, Length)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (N, Span<'src>, Time, Length)> + '_ {
         let melody = *self.program.get(&self.entry).expect("entry exists");
         let start = Time::zero();
         let factor = Factor::one();
@@ -46,30 +47,30 @@ impl<'a, N: Note> Evaluator<'a, N> {
     }
 }
 
-struct NextMelody<'a, N> {
-    melody: &'a Melody<'a, N>,
+struct NextMelody<'a, 'src, N> {
+    melody: &'a Melody<'a, 'src, N>,
     depth: usize,
     start: Time,
     factor: Factor,
 }
 
-impl<N> Eq for NextMelody<'_, N> {
+impl<N> Eq for NextMelody<'_, '_, N> {
     fn assert_receiver_is_total_eq(&self) {}
 }
 
-impl<N> PartialEq for NextMelody<'_, N> {
+impl<N> PartialEq for NextMelody<'_, '_, N> {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other).is_eq()
     }
 }
 
-impl<N> PartialOrd for NextMelody<'_, N> {
+impl<N> PartialOrd for NextMelody<'_, '_, N> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<N> Ord for NextMelody<'_, N> {
+impl<N> Ord for NextMelody<'_, '_, N> {
     fn cmp(&self, other: &Self) -> Ordering {
         let Time(this) = self.start;
         let Time(other) = other.start;
@@ -77,19 +78,20 @@ impl<N> Ord for NextMelody<'_, N> {
     }
 }
 
-struct Iter<'a, N> {
-    evaluator: &'a Evaluator<'a, N>,
-    queue: BinaryHeap<NextMelody<'a, N>>,
+struct Iter<'a, 'src, N> {
+    evaluator: &'a Evaluator<'a, 'src, N>,
+    queue: BinaryHeap<NextMelody<'a, 'src, N>>,
 }
 
-impl<'a, N: Note> Iterator for Iter<'a, N> {
-    type Item = (N, Time, Length);
+impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
+    type Item = (N, Span<'src>, Time, Length);
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(next) = self.queue.pop() {
             let start = next.start;
             let depth = next.depth;
             let factor = next.factor;
+            let span = next.melody.span;
 
             if depth >= self.evaluator.max_depth {
                 continue;
@@ -99,7 +101,7 @@ impl<'a, N: Note> Iterator for Iter<'a, N> {
                 Node::Pause => {}
                 Node::Note(note) => {
                     let length = next.melody.length * factor;
-                    return Some((note.clone(), start, length));
+                    return Some((note.clone(), span, start, length));
                 }
 
                 Node::Name(name) => {
