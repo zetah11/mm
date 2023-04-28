@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use rational::Rational;
+use rational::extras::r;
 use typed_arena::Arena;
 
 use crate::{implicit, melody, Factor, Length, Name};
@@ -51,7 +51,7 @@ fn lone_note() {
 #[test]
 fn scaled_note() {
     let melody = implicit::Melody::Note('a');
-    let melody = implicit::Melody::Scale(Factor(Rational::new(1, 2)), &melody);
+    let melody = implicit::Melody::Scale(Factor(r(1, 2)), &melody);
     let program = HashMap::from([(Name("x".into()), &melody)]);
 
     let melody = melody::Melody {
@@ -60,8 +60,8 @@ fn scaled_note() {
     };
 
     let melody = melody::Melody {
-        node: melody::Node::Scale(Factor(Rational::new(1, 2)), &melody),
-        length: Length::Bounded(Rational::new(1, 2)),
+        node: melody::Node::Scale(Factor(r(1, 2)), &melody),
+        length: Length::Bounded(r(1, 2)),
     };
 
     let expected = HashMap::from([(Name("x".into()), &melody)]);
@@ -90,7 +90,7 @@ fn pause_note_sequence() {
 
     let melody = melody::Melody {
         node: melody::Node::Sequence(&seq),
-        length: Length::Bounded(Rational::integer(2)),
+        length: Length::Bounded(r(2, 1)),
     };
 
     let expected = HashMap::from([(Name("x".into()), &melody)]);
@@ -155,7 +155,7 @@ fn a_name() {
     let b = [pause, to_a];
     let b = melody::Melody {
         node: melody::Node::Sequence(&b),
-        length: Length::Bounded(Rational::integer(2)),
+        length: Length::Bounded(r(2, 1)),
     };
 
     let expected = HashMap::from([(Name("a".into()), &a), (Name("b".into()), &b)]);
@@ -167,7 +167,7 @@ fn a_name() {
 fn fractal() {
     let note = implicit::Melody::Note('a');
     let to_a = implicit::Melody::Name(Name("a".into()));
-    let scale = implicit::Melody::Scale(Factor(Rational::new(1, 2)), &to_a);
+    let scale = implicit::Melody::Scale(Factor(r(1, 2)), &to_a);
 
     let melody = [note, scale];
     let melody = implicit::Melody::Sequence(&melody);
@@ -181,18 +181,18 @@ fn fractal() {
 
     let to_a = melody::Melody {
         node: melody::Node::Name(Name("a".into())),
-        length: Length::Bounded(Rational::integer(2)),
+        length: Length::Bounded(r(2, 1)),
     };
 
     let scale = melody::Melody {
-        node: melody::Node::Scale(Factor(Rational::new(1, 2)), &to_a),
+        node: melody::Node::Scale(Factor(r(1, 2)), &to_a),
         length: Length::one(),
     };
 
     let melody = [note, scale];
     let melody = melody::Melody {
         node: melody::Node::Sequence(&melody),
-        length: Length::Bounded(Rational::integer(2)),
+        length: Length::Bounded(r(2, 1)),
     };
 
     let expected = HashMap::from([(Name("a".into()), &melody)]);

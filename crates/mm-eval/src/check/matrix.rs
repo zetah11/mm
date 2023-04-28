@@ -176,6 +176,7 @@ fn largest_row_index<V>(system: &System<V>, column: usize, from: usize) -> Optio
 
 #[cfg(test)]
 mod tests {
+    use rational::extras::r;
     use rational::Rational;
 
     use crate::check::matrix::{largest_row_index, solve};
@@ -191,30 +192,18 @@ mod tests {
         */
 
         let r1 = Row {
-            coeffs: vec![
-                Rational::integer(0),
-                Rational::integer(1),
-                Rational::integer(2),
-            ],
-            constant: Rational::integer(3),
+            coeffs: vec![r(0, 1), r(1, 1), r(2, 1)],
+            constant: r(3, 1),
         };
 
         let r2 = Row {
-            coeffs: vec![
-                Rational::integer(4),
-                Rational::integer(9),
-                Rational::integer(6),
-            ],
-            constant: Rational::integer(11),
+            coeffs: vec![r(4, 1), r(9, 1), r(6, 1)],
+            constant: r(11, 1),
         };
 
         let r3 = Row {
-            coeffs: vec![
-                Rational::integer(8),
-                Rational::integer(5),
-                Rational::integer(10),
-            ],
-            constant: Rational::integer(7),
+            coeffs: vec![r(8, 1), r(5, 1), r(10, 1)],
+            constant: r(7, 1),
         };
 
         let rows = vec![r1, r2, r3];
@@ -234,13 +223,13 @@ mod tests {
         */
 
         let r1 = Row {
-            coeffs: vec![Rational::integer(3), Rational::integer(4)],
-            constant: Rational::integer(33),
+            coeffs: vec![r(3, 1), r(4, 1)],
+            constant: r(33, 1),
         };
 
         let r2 = Row {
-            coeffs: vec![Rational::integer(5), Rational::integer(-2)],
-            constant: Rational::integer(3),
+            coeffs: vec![r(5, 1), Rational::integer(-2)],
+            constant: r(3, 1),
         };
 
         let rows = vec![r1, r2];
@@ -250,13 +239,13 @@ mod tests {
         eliminate(&mut system);
 
         let r1 = Row {
-            coeffs: vec![Rational::integer(5), Rational::integer(-2)],
-            constant: Rational::integer(3),
+            coeffs: vec![r(5, 1), Rational::integer(-2)],
+            constant: r(3, 1),
         };
 
         let r2 = Row {
-            coeffs: vec![Rational::zero(), Rational::new(26, 5)],
-            constant: Rational::new(156, 5),
+            coeffs: vec![r(0, 1), r(26, 5)],
+            constant: r(156, 5),
         };
 
         let rows = vec![r1, r2];
@@ -275,30 +264,18 @@ mod tests {
         */
 
         let r1 = Row {
-            coeffs: vec![
-                Rational::integer(1),
-                Rational::integer(3),
-                Rational::integer(7),
-            ],
-            constant: Rational::integer(18),
+            coeffs: vec![r(1, 1), r(3, 1), r(7, 1)],
+            constant: r(18, 1),
         };
 
         let r2 = Row {
-            coeffs: vec![
-                Rational::integer(3),
-                Rational::integer(6),
-                Rational::integer(9),
-            ],
-            constant: Rational::integer(33),
+            coeffs: vec![r(3, 1), r(6, 1), r(9, 1)],
+            constant: r(33, 1),
         };
 
         let r3 = Row {
-            coeffs: vec![
-                Rational::integer(3),
-                Rational::integer(9),
-                Rational::integer(15),
-            ],
-            constant: Rational::integer(48),
+            coeffs: vec![r(3, 1), r(9, 1), r(15, 1)],
+            constant: r(48, 1),
         };
 
         let rows = vec![r1, r2, r3];
@@ -308,22 +285,18 @@ mod tests {
         eliminate(&mut system);
 
         let r1 = Row {
-            coeffs: vec![
-                Rational::integer(3),
-                Rational::integer(6),
-                Rational::integer(9),
-            ],
-            constant: Rational::integer(33),
+            coeffs: vec![r(3, 1), r(6, 1), r(9, 1)],
+            constant: r(33, 1),
         };
 
         let r2 = Row {
-            coeffs: vec![Rational::zero(), Rational::integer(3), Rational::integer(6)],
-            constant: Rational::integer(15),
+            coeffs: vec![r(0, 1), r(3, 1), r(6, 1)],
+            constant: r(15, 1),
         };
 
         let r3 = Row {
-            coeffs: vec![Rational::zero(), Rational::zero(), Rational::integer(2)],
-            constant: Rational::integer(2),
+            coeffs: vec![r(0, 1), r(0, 1), r(2, 1)],
+            constant: r(2, 1),
         };
 
         let rows = vec![r1, r2, r3];
@@ -341,23 +314,20 @@ mod tests {
         */
 
         let r1 = Row {
-            coeffs: vec![Rational::integer(3), Rational::integer(4)],
-            constant: Rational::integer(33),
+            coeffs: vec![r(3, 1), r(4, 1)],
+            constant: r(33, 1),
         };
 
         let r2 = Row {
-            coeffs: vec![Rational::integer(5), Rational::integer(-2)],
-            constant: Rational::integer(3),
+            coeffs: vec![r(5, 1), Rational::integer(-2)],
+            constant: r(3, 1),
         };
 
         let rows = vec![r1, r2];
         let vars = vec!["a", "b"];
         let system = System::new(rows, vars);
 
-        let expected = Some(vec![
-            ("a", Rational::integer(3)),
-            ("b", Rational::integer(6)),
-        ]);
+        let expected = Some(vec![("a", r(3, 1)), ("b", r(6, 1))]);
 
         let actual = solve(system);
         assert_eq!(expected, actual);
@@ -372,41 +342,25 @@ mod tests {
         */
 
         let r1 = Row {
-            coeffs: vec![
-                Rational::integer(1),
-                Rational::integer(3),
-                Rational::integer(7),
-            ],
-            constant: Rational::integer(18),
+            coeffs: vec![r(1, 1), r(3, 1), r(7, 1)],
+            constant: r(18, 1),
         };
 
         let r2 = Row {
-            coeffs: vec![
-                Rational::integer(3),
-                Rational::integer(6),
-                Rational::integer(9),
-            ],
-            constant: Rational::integer(33),
+            coeffs: vec![r(3, 1), r(6, 1), r(9, 1)],
+            constant: r(33, 1),
         };
 
         let r3 = Row {
-            coeffs: vec![
-                Rational::integer(3),
-                Rational::integer(9),
-                Rational::integer(15),
-            ],
-            constant: Rational::integer(48),
+            coeffs: vec![r(3, 1), r(9, 1), r(15, 1)],
+            constant: r(48, 1),
         };
 
         let rows = vec![r1, r2, r3];
         let vars = vec!["x", "y", "z"];
         let system = System::new(rows, vars);
 
-        let expected = Some(vec![
-            ("x", Rational::integer(2)),
-            ("y", Rational::integer(3)),
-            ("z", Rational::integer(1)),
-        ]);
+        let expected = Some(vec![("x", r(2, 1)), ("y", r(3, 1)), ("z", r(1, 1))]);
 
         let actual = solve(system);
 
@@ -420,8 +374,8 @@ mod tests {
         */
 
         let r1 = Row {
-            coeffs: vec![Rational::zero()],
-            constant: Rational::integer(5),
+            coeffs: vec![r(0, 1)],
+            constant: r(5, 1),
         };
 
         let rows = vec![r1];
