@@ -101,8 +101,8 @@ impl<N> Checker<'_, '_, N> {
                                 .get(&var)
                                 .expect("melodies are processed in topological order");
 
-                            let Length::Bounded(length) = length else { return None; };
-                            constant += length.clone();
+                            let Length::Bounded(length) = factor * length.clone() else { return None; };
+                            constant += length;
                         }
                     }
                 }

@@ -283,6 +283,108 @@ fn infinite() {
 }
 
 #[test]
+fn fractal_names() {
+    // it = 1/2 (at, it, bt)
+    // at = a, b
+    // bt = b, c
+    let a = implicit::Melody::Note(span(), 'a');
+    let b = implicit::Melody::Note(span(), 'b');
+    let c = implicit::Melody::Note(span(), 'c');
+
+    let at = [a, b.clone()];
+    let at = implicit::Melody::Sequence(&at);
+
+    let bt = [b, c];
+    let bt = implicit::Melody::Sequence(&bt);
+
+    let to_at = implicit::Melody::Name(span(), Name("at".into()));
+    let to_bt = implicit::Melody::Name(span(), Name("bt".into()));
+    let to_it = implicit::Melody::Name(span(), Name("it".into()));
+
+    let inner = [to_at, to_it, to_bt];
+    let inner = implicit::Melody::Sequence(&inner);
+
+    let it = implicit::Melody::Scale(span(), Factor(r(1, 2)), &inner);
+
+    let program = HashMap::from([
+        (Name("it".into()), &it),
+        (Name("at".into()), &at),
+        (Name("bt".into()), &bt),
+    ]);
+
+    let a = melody::Melody {
+        node: melody::Node::Note('a'),
+        span: span(),
+        length: Length::one(),
+    };
+
+    let b = melody::Melody {
+        node: melody::Node::Note('b'),
+        span: span(),
+        length: Length::one(),
+    };
+
+    let c = melody::Melody {
+        node: melody::Node::Note('c'),
+        span: span(),
+        length: Length::one(),
+    };
+
+    let at = [a, b.clone()];
+    let at = melody::Melody {
+        node: melody::Node::Sequence(&at),
+        span: span(),
+        length: Length::Bounded(r(2, 1)),
+    };
+
+    let bt = [b, c];
+    let bt = melody::Melody {
+        node: melody::Node::Sequence(&bt),
+        span: span(),
+        length: Length::Bounded(r(2, 1)),
+    };
+
+    let to_at = melody::Melody {
+        node: melody::Node::Name(Name("at".into())),
+        span: span(),
+        length: Length::Bounded(r(2, 1)),
+    };
+
+    let to_it = melody::Melody {
+        node: melody::Node::Name(Name("it".into())),
+        span: span(),
+        length: Length::Bounded(r(4, 1)),
+    };
+
+    let to_bt = melody::Melody {
+        node: melody::Node::Name(Name("bt".into())),
+        span: span(),
+        length: Length::Bounded(r(2, 1)),
+    };
+
+    let inner = [to_at, to_it, to_bt];
+    let inner = melody::Melody {
+        node: melody::Node::Sequence(&inner),
+        span: span(),
+        length: Length::Bounded(r(8, 1)),
+    };
+
+    let it = melody::Melody {
+        node: melody::Node::Scale(Factor(r(1, 2)), &inner),
+        span: span(),
+        length: Length::Bounded(r(4, 1)),
+    };
+
+    let expected = HashMap::from([
+        (Name("it".into()), &it),
+        (Name("at".into()), &at),
+        (Name("bt".into()), &bt),
+    ]);
+
+    check_ok(expected, program);
+}
+
+#[test]
 fn wrong_unbounded() {
     let a = implicit::Melody::Note(span(), 'a');
     let to_x = implicit::Melody::Name(span(), Name("x".into()));
