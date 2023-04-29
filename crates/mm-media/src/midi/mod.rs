@@ -1,9 +1,10 @@
-use mm_eval::span::Span;
-use mm_eval::{Length, Time};
-pub use pitch::Pitch;
+pub use pitch::{Interval, Pitch};
 
 mod channel;
 mod pitch;
+
+use mm_eval::span::Span;
+use mm_eval::{Length, Time};
 
 use std::io;
 use std::path::Path;

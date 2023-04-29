@@ -152,6 +152,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fed44880c466736ef9a5c5b5facefb5ed0785676d0c02d612db14e54f0d84286"
 
 [[package]]
+name = "hypermelon"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a21d32b951725c7efe88bac17f191cf2bb0028cce32d1acb3cd087755a0719b2"
+
+[[package]]
 name = "io-lifetimes"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -271,6 +277,7 @@ dependencies = [
 name = "mm-media"
 version = "0.1.0"
 dependencies = [
+ "hypermelon",
  "midly",
  "mm-eval",
  "num-rational",
