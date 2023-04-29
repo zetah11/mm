@@ -1,0 +1,14 @@
+; mm syntactical grammar
+
+program    = *definition
+definition = NAME "=" expression
+
+expression = stack
+stack      = sequence *("|" sequence)
+sequence   = scale *("," scale)
+scale      = [factor] simple *"#" [offset]
+simple     = NAME / NOTE / "<>"
+simple    /= "(" expression ")"
+
+factor     = NUMBER ["/" NUMBER]
+offset     = ("+" / "-") NUMBER

@@ -1,5 +1,6 @@
 use num_bigint::BigInt;
 use num_rational::BigRational;
+use num_traits::ToPrimitive;
 
 use super::lex::Token;
 use super::{Error, Parser};
@@ -90,13 +91,37 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
     }
 
     fn scale(&mut self) -> Melody<'a, 'src, N> {
-        if self.peek(Token::Number("")).is_some() {
+        let mut melody = if self.peek(Token::Number("")).is_some() {
             let (by, factor_span) = self.factor();
             let melody = self.simple();
             let melody = self.arena.alloc(melody);
             Melody::Scale(factor_span, by, melody)
         } else {
             self.simple()
+        };
+
+        let mut sharps = 0;
+        let mut sharp_span = None;
+        while let Some((_, span)) = self.consume(Token::Sharp) {
+            sharps += 1;
+            if let Some(sharp_span) = sharp_span.as_mut() {
+                *sharp_span = *sharp_span + span;
+            } else {
+                sharp_span = Some(span);
+            }
+        }
+
+        if let Some(sharp_span) = sharp_span {
+            let inner = self.arena.alloc(melody);
+            melody = Melody::Sharp(sharp_span, sharps, inner);
+        }
+
+        if self.peek([Token::Minus, Token::Plus]).is_some() {
+            let (offset, offset_span) = self.offset();
+            let melody = self.arena.alloc(melody);
+            Melody::Offset(offset_span, offset, melody)
+        } else {
+            melody
         }
     }
 
@@ -129,6 +154,27 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         };
 
         melody
+    }
+
+    fn offset(&mut self) -> (isize, Span<'src>) {
+        let (sign, span) = match self.advance() {
+            Some((Token::Plus, span)) => (1, span),
+            Some((Token::Minus, span)) => (-1, span),
+            _ => unreachable!(),
+        };
+
+        let (num, span): (BigInt, _) =
+            if let Some((Token::Number(s), num_span)) = self.consume(Token::Number("")) {
+                (sign * Self::parse_int(s), num_span + span)
+            } else {
+                todo!()
+            };
+
+        if let Some(offset) = num.to_isize() {
+            (offset, span)
+        } else {
+            todo!()
+        }
     }
 
     fn factor(&mut self) -> (Factor, Span<'src>) {

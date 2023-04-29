@@ -41,7 +41,10 @@ impl<'a, 'src, N: Note> Evaluator<'a, 'src, N> {
                 melody,
                 depth: 0,
                 start,
+
                 factor,
+                offset: 0,
+                sharps: 0,
             }]),
         }
     }
@@ -51,7 +54,10 @@ struct NextMelody<'a, 'src, N> {
     melody: &'a Melody<'a, 'src, N>,
     depth: usize,
     start: Time,
+
     factor: Factor,
+    offset: isize,
+    sharps: usize,
 }
 
 impl<N> Eq for NextMelody<'_, '_, N> {
@@ -91,6 +97,8 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
             let start = next.start;
             let depth = next.depth;
             let factor = next.factor;
+            let offset = next.offset;
+            let sharps = next.sharps;
             let span = next.melody.span;
 
             if depth >= self.evaluator.max_depth {
@@ -101,7 +109,8 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                 Node::Pause => {}
                 Node::Note(note) => {
                     let length = next.melody.length.clone() * factor;
-                    return Some((note.clone(), span, start, length));
+                    let note = note.add_octave(offset).add_sharp(sharps);
+                    return Some((note, span, start, length));
                 }
 
                 Node::Name(name) => {
@@ -122,6 +131,8 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                         depth,
                         start,
                         factor,
+                        offset,
+                        sharps,
                     });
                 }
 
@@ -132,6 +143,32 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                         depth,
                         start,
                         factor,
+                        offset,
+                        sharps,
+                    });
+                }
+
+                Node::Sharp(by, melody) => {
+                    let sharps = sharps + *by;
+                    self.queue.push(NextMelody {
+                        melody,
+                        depth,
+                        start,
+                        factor,
+                        offset,
+                        sharps,
+                    });
+                }
+
+                Node::Offset(by, melody) => {
+                    let offset = offset + *by;
+                    self.queue.push(NextMelody {
+                        melody,
+                        depth,
+                        start,
+                        factor,
+                        offset,
+                        sharps,
                     });
                 }
 
@@ -144,6 +181,8 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                             depth,
                             start: start.clone(),
                             factor: factor.clone(),
+                            offset,
+                            sharps,
                         });
 
                         if matches!(length, Length::Unbounded) {
@@ -161,6 +200,8 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                             depth,
                             start: start.clone(),
                             factor: factor.clone(),
+                            offset,
+                            sharps,
                         });
                     }
                 }

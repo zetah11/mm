@@ -33,6 +33,8 @@ pub enum Melody<'a, 'src, N> {
     Note(Span<'src>, N),
     Name(Span<'src>, Name),
     Scale(Span<'src>, Factor, &'a Melody<'a, 'src, N>),
+    Sharp(Span<'src>, usize, &'a Melody<'a, 'src, N>),
+    Offset(Span<'src>, isize, &'a Melody<'a, 'src, N>),
     Sequence(&'a [Melody<'a, 'src, N>]),
     Stack(&'a [Melody<'a, 'src, N>]),
 }
@@ -44,6 +46,8 @@ impl<'src, N> Melody<'_, 'src, N> {
             Self::Note(span, _) => *span,
             Self::Name(span, _) => *span,
             Self::Scale(factor_span, _, inner) => *factor_span + inner.span(),
+            Self::Sharp(sharp_span, _, inner) => *sharp_span + inner.span(),
+            Self::Offset(offset_span, _, inner) => *offset_span + inner.span(),
 
             Self::Sequence(melodies) => melodies
                 .iter()

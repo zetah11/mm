@@ -2,6 +2,7 @@ use logos::Logos;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Logos)]
 #[logos(skip r"\s+")]
+#[logos(skip r"--[^\n]*")]
 pub enum Token<'src> {
     #[regex(r"\p{XID_Start}[\p{XID_Continue}_']*", |lex| lex.slice())]
     Name(&'src str),

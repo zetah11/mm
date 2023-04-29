@@ -27,6 +27,8 @@ fn compute<N>(within: &mut HashSet<Name>, melody: &Melody<N>) {
         }
 
         Melody::Scale(_, _, melody) => compute(within, melody),
+        Melody::Sharp(_, _, melody) => compute(within, melody),
+        Melody::Offset(_, _, melody) => compute(within, melody),
 
         Melody::Sequence(melodies) | Melody::Stack(melodies) => {
             for melody in *melodies {

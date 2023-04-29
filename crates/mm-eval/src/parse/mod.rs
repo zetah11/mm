@@ -113,3 +113,9 @@ impl Matcher for Token<'_> {
         }
     }
 }
+
+impl<const N: usize> Matcher for [Token<'_>; N] {
+    fn matches(&self, token: &Token) -> bool {
+        self.iter().any(|t| t.matches(token))
+    }
+}

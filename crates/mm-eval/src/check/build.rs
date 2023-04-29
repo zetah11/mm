@@ -28,6 +28,9 @@ impl<N: Note> Checker<'_, '_, N> {
                 self.build(factor, melody)
             }
 
+            Melody::Sharp(_, _, melody) => self.build(factor, melody),
+            Melody::Offset(_, _, melody) => self.build(factor, melody),
+
             Melody::Sequence(melodies) => Self::sum(
                 melodies
                     .iter()

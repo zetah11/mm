@@ -51,6 +51,14 @@ impl Note for Pitch {
             _ => return None,
         })
     }
+
+    fn add_sharp(&self, by: usize) -> Self {
+        Self(self.0 + by as isize)
+    }
+
+    fn add_octave(&self, by: isize) -> Self {
+        Self(self.0 + 12 * by)
+    }
 }
 
 impl Add<Interval> for Pitch {

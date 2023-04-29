@@ -34,6 +34,22 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
                 (melody::Node::Scale(by.clone(), melody), length)
             }
 
+            implicit::Melody::Sharp(_, by, melody) => {
+                let melody = self.lower(melody);
+                let melody = self.arena.alloc(melody);
+                let length = melody.length.clone();
+
+                (melody::Node::Sharp(*by, melody), length)
+            }
+
+            implicit::Melody::Offset(_, by, melody) => {
+                let melody = self.lower(melody);
+                let melody = self.arena.alloc(melody);
+                let length = melody.length.clone();
+
+                (melody::Node::Offset(*by, melody), length)
+            }
+
             implicit::Melody::Sequence(melodies) => {
                 let melodies: Vec<_> = melodies.iter().map(|melody| self.lower(melody)).collect();
 

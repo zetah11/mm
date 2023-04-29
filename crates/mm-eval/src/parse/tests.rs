@@ -101,6 +101,43 @@ fn mutual() {
 }
 
 #[test]
+fn some_comments() {
+    let source = "-- beep--=\nit = <>--";
+    let s = span_in(source);
+
+    let a = Melody::Pause(s(16, 18));
+    let expected = HashMap::from([(Name("it".into()), &a)]);
+
+    check_ok(expected, source);
+}
+
+#[test]
+fn sharps() {
+    let source = r#"it = (a#)##"#;
+    let s = span_in(source);
+
+    let a = Melody::Note(s(6, 7), 'a');
+    let inner = Melody::Sharp(s(7, 8), 1, &a);
+    let outer = Melody::Sharp(s(9, 11), 2, &inner);
+    let expected = HashMap::from([(Name("it".into()), &outer)]);
+
+    check_ok(expected, source);
+}
+
+#[test]
+fn offsets() {
+    let source = r#"it = (a+1)-1"#;
+    let s = span_in(source);
+
+    let a = Melody::Note(s(6, 7), 'a');
+    let inner = Melody::Offset(s(7, 9), 1, &a);
+    let outer = Melody::Offset(s(10, 12), -1, &inner);
+    let expected = HashMap::from([(Name("it".into()), &outer)]);
+
+    check_ok(expected, source);
+}
+
+#[test]
 fn expected_equal() {
     let source = r#"aa bb = A"#;
     let s = span_in(source);
