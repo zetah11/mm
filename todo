@@ -8,5 +8,6 @@ Errors
 [x] report multiple checking errors for the same definition
 [x] report parse errors
 
-Various
+Performance
+[ ] don't clone the rationals everywhere
 [ ] intern names

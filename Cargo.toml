@@ -13,4 +13,5 @@ license = "MIT OR Apache-2.0"
 mm-eval = { path = "crates/mm-eval" }
 mm-media = { path = "crates/mm-media" }
 
+ariadne = { version = "0.2", features = ["auto-color"] }
 typed-arena = "2.0"
