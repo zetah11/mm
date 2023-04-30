@@ -50,6 +50,7 @@ impl<'a, 'src, N: Note> Evaluator<'a, 'src, N> {
     }
 }
 
+#[derive(Debug)]
 struct NextMelody<'a, 'src, N> {
     melody: &'a Melody<'a, 'src, N>,
     depth: usize,
@@ -113,18 +114,29 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                     return Some((note, span, start, length));
                 }
 
-                Node::Name(name) => {
+                Node::Recur(name) => {
                     let melody = *self
                         .evaluator
                         .program
                         .get(name)
                         .expect("all names are defined");
 
-                    let depth = if !melody.length.is_unbounded() {
-                        depth + 1
-                    } else {
-                        depth
-                    };
+                    self.queue.push(NextMelody {
+                        melody,
+                        depth: depth + 1,
+                        start,
+                        factor,
+                        offset,
+                        sharps,
+                    });
+                }
+
+                Node::Name(name) => {
+                    let melody = *self
+                        .evaluator
+                        .program
+                        .get(name)
+                        .expect("all names are defined");
 
                     self.queue.push(NextMelody {
                         melody,

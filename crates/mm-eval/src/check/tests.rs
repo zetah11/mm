@@ -218,7 +218,7 @@ fn fractal() {
     };
 
     let to_a = melody::Melody {
-        node: melody::Node::Name(Name("a")),
+        node: melody::Node::Recur(Name("a")),
         span: span(),
         length: Length::Bounded(r(2, 1)),
     };
@@ -347,7 +347,7 @@ fn fractal_names() {
     };
 
     let to_it = melody::Melody {
-        node: melody::Node::Name(Name("it")),
+        node: melody::Node::Recur(Name("it")),
         span: span(),
         length: Length::Bounded(r(4, 1)),
     };

@@ -13,7 +13,7 @@ use notify_debouncer_mini::notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult};
 use typed_arena::Arena;
 
-const MAX_DEPTH: usize = 100;
+const MAX_DEPTH: usize = 7;
 const MAX_NOTES: usize = 1000;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

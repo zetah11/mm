@@ -21,6 +21,7 @@ pub enum Node<'a, 'src, N> {
     Pause,
     Note(N),
     Name(Name<'src>),
+    Recur(Name<'src>),
     Scale(Factor, &'a Melody<'a, 'src, N>),
     Sharp(usize, &'a Melody<'a, 'src, N>),
     Offset(isize, &'a Melody<'a, 'src, N>),

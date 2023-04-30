@@ -1,10 +1,16 @@
+use std::collections::HashSet;
+
 use crate::note::Note;
-use crate::{implicit, melody, Length};
+use crate::{implicit, melody, Length, Name};
 
 use super::{Checker, Error};
 
 impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
-    pub fn lower(&mut self, melody: &implicit::Melody<'_, 'src, N>) -> melody::Melody<'a, 'src, N> {
+    pub fn lower(
+        &mut self,
+        component: &HashSet<&Name<'src>>,
+        melody: &implicit::Melody<'_, 'src, N>,
+    ) -> melody::Melody<'a, 'src, N> {
         let span = melody.span();
 
         let (node, length) = match melody {
@@ -18,6 +24,10 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
                     .expect("all names are given variables");
 
                 match self.lengths.get(var) {
+                    Some(length) if component.contains(name) && !length.is_unbounded() => {
+                        (melody::Node::Recur(*name), length.clone())
+                    }
+
                     Some(length) => (melody::Node::Name(*name), length.clone()),
                     None => {
                         self.errors.push(Error::UnknownName(span, name.0));
@@ -27,7 +37,7 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
             }
 
             implicit::Melody::Scale(_, by, melody) => {
-                let melody = self.lower(melody);
+                let melody = self.lower(component, melody);
                 let melody = self.arena.alloc(melody);
                 let length = by * &melody.length;
 
@@ -35,7 +45,7 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
             }
 
             implicit::Melody::Sharp(_, by, melody) => {
-                let melody = self.lower(melody);
+                let melody = self.lower(component, melody);
                 let melody = self.arena.alloc(melody);
                 let length = melody.length.clone();
 
@@ -43,7 +53,7 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
             }
 
             implicit::Melody::Offset(_, by, melody) => {
-                let melody = self.lower(melody);
+                let melody = self.lower(component, melody);
                 let melody = self.arena.alloc(melody);
                 let length = melody.length.clone();
 
@@ -51,7 +61,10 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
             }
 
             implicit::Melody::Sequence(melodies) => {
-                let melodies: Vec<_> = melodies.iter().map(|melody| self.lower(melody)).collect();
+                let melodies: Vec<_> = melodies
+                    .iter()
+                    .map(|melody| self.lower(component, melody))
+                    .collect();
 
                 for melody in melodies.iter().rev().skip(1) {
                     if melody.length.is_unbounded() {
@@ -70,7 +83,10 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
             }
 
             implicit::Melody::Stack(melodies) => {
-                let melodies: Vec<_> = melodies.iter().map(|melody| self.lower(melody)).collect();
+                let melodies: Vec<_> = melodies
+                    .iter()
+                    .map(|melody| self.lower(component, melody))
+                    .collect();
 
                 let melodies = self.arena.alloc_extend(melodies);
 

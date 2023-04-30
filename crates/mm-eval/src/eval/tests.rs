@@ -197,7 +197,7 @@ fn fractal() {
     };
 
     let to_fractal = Melody {
-        node: Node::Name(Name("fractal")),
+        node: Node::Recur(Name("fractal")),
         length: Length::Bounded(r(2, 1)),
         span,
     };
@@ -229,5 +229,5 @@ fn fractal() {
 
     let actual: Vec<_> = evaluator.iter().take(100).collect();
 
-    assert_eq!(actual, expected);
+    assert_eq!(expected, actual);
 }

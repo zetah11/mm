@@ -20,13 +20,15 @@ impl<N> Checker<'_, '_, N> {
         match self.solve_equations(equations) {
             Solution::Solved(lengths) => {
                 for (var, length) in lengths {
-                    debug_assert!(self.lengths.insert(var, Length::Bounded(length)).is_none());
+                    let prev = self.lengths.insert(var, Length::Bounded(length));
+                    debug_assert!(prev.is_none());
                 }
             }
 
             Solution::Unbounded(vars) => {
                 for var in vars {
-                    debug_assert!(self.lengths.insert(var, Length::Unbounded).is_none());
+                    let prev = self.lengths.insert(var, Length::Unbounded);
+                    debug_assert!(prev.is_none());
                 }
             }
         }

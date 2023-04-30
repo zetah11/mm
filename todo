@@ -5,6 +5,8 @@ Correctness
 [ ] hide the inner rationals in Factor, Time, and Length, and enforce them
     always being non-negative
 [x] bigrationals instead of fixed-size rationals
+[x] skip notes smaller than some tiny limit, things just break then (svg
+    rendering limitations?). e.g. special recur node whenever recursion happens
 
 mm
 [x] sharps and octaves
@@ -15,6 +17,7 @@ Errors
 [x] report multiple checking errors for the same definition
 [x] report parse errors
 [ ] report unknown entry error
+[ ] report unknown name error
 
 Performance
 [ ] don't clone the rationals everywhere

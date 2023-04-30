@@ -96,12 +96,13 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
 
         self.solve(equations);
 
-        for name in names {
+        for name in names.iter() {
             let Some(melody) = program.get(name) else { continue; };
 
-            let melody = self.lower(melody);
+            let melody = self.lower(&names, melody);
             let melody = self.arena.alloc(melody);
-            debug_assert!(self.defs.insert(*name, melody).is_none());
+            let prev = self.defs.insert(**name, melody);
+            debug_assert!(prev.is_none());
         }
     }
 }
