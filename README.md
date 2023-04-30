@@ -3,7 +3,7 @@
 mm is for making melodies!
 
 mm is a DSL used to notate melodies and harmonies, although the system easily
-generalizes to anything else.
+generalizes to other things.
 
     it = 3 (melody | chords)
 
