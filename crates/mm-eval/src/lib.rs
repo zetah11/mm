@@ -15,8 +15,8 @@ mod time;
 mod dependency;
 mod topology;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Name(pub String);
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Name<'src>(pub &'src str);
 
 #[derive(Debug)]
 pub enum Error<'src> {

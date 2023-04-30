@@ -23,14 +23,14 @@ pub fn write_channel<'src>(
     let mut events = BinaryHeap::new();
 
     for (note, _, start, length) in notes {
-        let on = PitchEvent {
-            at: start.clone(),
-            kind: PitchEventKind::On(note),
+        let off = PitchEvent {
+            at: &start + &length,
+            kind: PitchEventKind::Off(note),
         };
 
-        let off = PitchEvent {
-            at: start + length,
-            kind: PitchEventKind::Off(note),
+        let on = PitchEvent {
+            at: start,
+            kind: PitchEventKind::On(note),
         };
 
         events.push(on);

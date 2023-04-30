@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::fmt;
-use std::iter::Sum;
 use std::ops::{Add, Mul};
 
 use num_bigint::BigInt;
@@ -70,67 +69,57 @@ impl Time {
     }
 }
 
-impl Add<Time> for Length {
+impl Add<&'_ Time> for &'_ Length {
     type Output = Time;
 
-    fn add(self, rhs: Time) -> Self::Output {
+    fn add(self, rhs: &Time) -> Time {
         rhs + self
     }
 }
 
-impl Add<Length> for Time {
-    type Output = Self;
+impl Add<&'_ Length> for &'_ Time {
+    type Output = Time;
 
-    fn add(self, rhs: Length) -> Self {
+    fn add(self, rhs: &Length) -> Time {
         let Length::Bounded(length) = rhs else { panic!("add unbounded length to time") };
-        Self(self.0 + length)
+        Time(&self.0 + length)
     }
 }
 
-impl Add for Length {
-    type Output = Self;
+impl Add for &'_ Length {
+    type Output = Length;
 
-    fn add(self, rhs: Self) -> Self {
+    fn add(self, rhs: Self) -> Length {
         match (self, rhs) {
-            (Self::Bounded(left), Self::Bounded(right)) => Self::Bounded(left + right),
-            _ => Self::Unbounded,
+            (Length::Bounded(left), Length::Bounded(right)) => Length::Bounded(left + right),
+            _ => Length::Unbounded,
         }
     }
 }
 
-impl Mul for Factor {
-    type Output = Self;
+impl Mul for &'_ Factor {
+    type Output = Factor;
 
-    fn mul(self, rhs: Self) -> Self::Output {
-        Self(self.0 * rhs.0)
+    fn mul(self, rhs: Self) -> Factor {
+        Factor(&self.0 * &rhs.0)
     }
 }
 
-impl Mul<Length> for Factor {
+impl Mul<&'_ Length> for &'_ Factor {
     type Output = Length;
 
-    fn mul(self, rhs: Length) -> Length {
+    fn mul(self, rhs: &Length) -> Length {
         rhs * self
     }
 }
 
-impl Mul<Factor> for Length {
-    type Output = Self;
+impl Mul<&'_ Factor> for &'_ Length {
+    type Output = Length;
 
-    fn mul(self, rhs: Factor) -> Self {
+    fn mul(self, rhs: &'_ Factor) -> Length {
         match self {
-            Self::Bounded(length) => Self::Bounded(length * rhs.0),
-            Self::Unbounded => Self::Unbounded,
+            Length::Bounded(length) => Length::Bounded(length * &rhs.0),
+            Length::Unbounded => Length::Unbounded,
         }
-    }
-}
-
-impl Sum for Length {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        let mut result = Self::zero();
-        for item in iter {
-            result = result + item;
-        }
-        result
     }
 }

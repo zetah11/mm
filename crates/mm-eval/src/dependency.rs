@@ -6,24 +6,26 @@ use crate::Name;
 /// Compute the dependency graph of the given program. Each returned entry
 /// contains "outgoing" edges: `a` is in the set of names referred to by `b` if
 /// the definition of `b` refers to `a` at any place.
-pub fn dependencies<N>(program: &HashMap<Name, &Melody<N>>) -> HashMap<Name, HashSet<Name>> {
+pub fn dependencies<'src, N>(
+    program: &HashMap<Name<'src>, &Melody<'_, 'src, N>>,
+) -> HashMap<Name<'src>, HashSet<Name<'src>>> {
     program
         .iter()
         .map(|(name, melody)| {
             let mut refers = HashSet::new();
             compute(&mut refers, melody);
-            (name.clone(), refers)
+            (*name, refers)
         })
         .collect()
 }
 
 /// Add the names referred to by `melody` to `within`.
-fn compute<N>(within: &mut HashSet<Name>, melody: &Melody<N>) {
+fn compute<'src, N>(within: &mut HashSet<Name<'src>>, melody: &Melody<'_, 'src, N>) {
     match melody {
         Melody::Pause(_) | Melody::Note(..) => {}
 
         Melody::Name(_, name) => {
-            within.insert(name.clone());
+            within.insert(*name);
         }
 
         Melody::Scale(_, _, melody) => compute(within, melody),
@@ -57,12 +59,8 @@ mod tests {
         let seq = [b, c];
         let seq = Melody::Sequence(&seq);
 
-        let program = HashMap::from([(Name("a".into()), &a), (Name("b".into()), &seq)]);
-
-        let expected = HashMap::from([
-            (Name("a".into()), HashSet::new()),
-            (Name("b".into()), HashSet::new()),
-        ]);
+        let program = HashMap::from([(Name("a"), &a), (Name("b"), &seq)]);
+        let expected = HashMap::from([(Name("a"), HashSet::new()), (Name("b"), HashSet::new())]);
 
         let actual = dependencies(&program);
 
@@ -72,19 +70,15 @@ mod tests {
     #[test]
     fn chain() {
         let a: Melody<char> = Melody::Pause(span());
-        let b = Melody::Name(span(), Name("a".into()));
-        let c = Melody::Name(span(), Name("b".into()));
+        let b = Melody::Name(span(), Name("a"));
+        let c = Melody::Name(span(), Name("b"));
 
-        let program = HashMap::from([
-            (Name("a".into()), &a),
-            (Name("b".into()), &b),
-            (Name("c".into()), &c),
-        ]);
+        let program = HashMap::from([(Name("a"), &a), (Name("b"), &b), (Name("c"), &c)]);
 
         let expected = HashMap::from([
-            (Name("a".into()), HashSet::new()),
-            (Name("b".into()), HashSet::from([Name("a".into())])),
-            (Name("c".into()), HashSet::from([Name("b".into())])),
+            (Name("a"), HashSet::new()),
+            (Name("b"), HashSet::from([Name("a")])),
+            (Name("c"), HashSet::from([Name("b")])),
         ]);
 
         let actual = dependencies(&program);
@@ -95,28 +89,25 @@ mod tests {
     #[test]
     fn fork_join() {
         let a: Melody<char> = Melody::Pause(span());
-        let to_a = Melody::Name(span(), Name("a".into()));
-        let to_b = Melody::Name(span(), Name("b".into()));
-        let to_c = Melody::Name(span(), Name("c".into()));
+        let to_a = Melody::Name(span(), Name("a"));
+        let to_b = Melody::Name(span(), Name("b"));
+        let to_c = Melody::Name(span(), Name("c"));
 
         let seq = [to_b, to_c];
         let d = Melody::Sequence(&seq);
 
         let program = HashMap::from([
-            (Name("a".into()), &a),
-            (Name("b".into()), &to_a),
-            (Name("c".into()), &to_a),
-            (Name("d".into()), &d),
+            (Name("a"), &a),
+            (Name("b"), &to_a),
+            (Name("c"), &to_a),
+            (Name("d"), &d),
         ]);
 
         let expected = HashMap::from([
-            (Name("a".into()), HashSet::new()),
-            (Name("b".into()), HashSet::from([Name("a".into())])),
-            (Name("c".into()), HashSet::from([Name("a".into())])),
-            (
-                Name("d".into()),
-                HashSet::from([Name("b".into()), Name("c".into())]),
-            ),
+            (Name("a"), HashSet::new()),
+            (Name("b"), HashSet::from([Name("a")])),
+            (Name("c"), HashSet::from([Name("a")])),
+            (Name("d"), HashSet::from([Name("b"), Name("c")])),
         ]);
 
         let actual = dependencies(&program);
@@ -126,20 +117,16 @@ mod tests {
 
     #[test]
     fn cycles() {
-        let a: Melody<char> = Melody::Name(span(), Name("c".into()));
-        let b = Melody::Name(span(), Name("a".into()));
-        let c = Melody::Name(span(), Name("b".into()));
+        let a: Melody<char> = Melody::Name(span(), Name("c"));
+        let b = Melody::Name(span(), Name("a"));
+        let c = Melody::Name(span(), Name("b"));
 
-        let program = HashMap::from([
-            (Name("a".into()), &a),
-            (Name("b".into()), &b),
-            (Name("c".into()), &c),
-        ]);
+        let program = HashMap::from([(Name("a"), &a), (Name("b"), &b), (Name("c"), &c)]);
 
         let expected = HashMap::from([
-            (Name("a".into()), HashSet::from([Name("c".into())])),
-            (Name("b".into()), HashSet::from([Name("a".into())])),
-            (Name("c".into()), HashSet::from([Name("b".into())])),
+            (Name("a"), HashSet::from([Name("c")])),
+            (Name("b"), HashSet::from([Name("a")])),
+            (Name("c"), HashSet::from([Name("b")])),
         ]);
 
         let actual = dependencies(&program);

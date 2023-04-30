@@ -20,7 +20,7 @@ use self::equation::{Equation, Variable};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error<'src> {
-    UnknownName(Span<'src>, String),
+    UnknownName(Span<'src>, &'src str),
     UnboundedNotLast(Span<'src>),
 }
 
@@ -47,8 +47,8 @@ pub fn check<'a, 'src, N: Note>(
 
 struct Checker<'a, 'src, N> {
     arena: &'a Arena<melody::Melody<'a, 'src, N>>,
-    defs: HashMap<Name, &'a melody::Melody<'a, 'src, N>>,
-    context: HashMap<Name, Variable>,
+    defs: HashMap<Name<'src>, &'a melody::Melody<'a, 'src, N>>,
+    context: HashMap<Name<'src>, Variable>,
     lengths: HashMap<Variable, Length>,
     counter: usize,
 
@@ -70,8 +70,8 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
 
     pub fn check_component(
         &mut self,
-        program: &HashMap<Name, &implicit::Melody<'_, 'src, N>>,
-        names: HashSet<&Name>,
+        program: &HashMap<Name<'src>, &implicit::Melody<'_, 'src, N>>,
+        names: HashSet<&Name<'src>>,
     ) {
         for name in names.iter() {
             let var = self.fresh();
@@ -101,7 +101,7 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
 
             let melody = self.lower(melody);
             let melody = self.arena.alloc(melody);
-            debug_assert!(self.defs.insert(name.clone(), melody).is_none());
+            debug_assert!(self.defs.insert(*name, melody).is_none());
         }
     }
 }

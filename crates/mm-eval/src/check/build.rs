@@ -7,16 +7,16 @@ use crate::{Factor, Length};
 
 impl<N: Note> Checker<'_, '_, N> {
     pub fn build_equation(&self, melody: &Melody<N>) -> Vec<Sum> {
-        self.build(Factor::one(), melody)
+        self.build(&Factor::one(), melody)
     }
 
-    fn build(&self, factor: Factor, melody: &Melody<N>) -> Vec<Sum> {
+    fn build(&self, factor: &Factor, melody: &Melody<N>) -> Vec<Sum> {
         match melody {
-            Melody::Pause(_) => Self::constant(factor * Length::one()),
-            Melody::Note(_, _) => Self::constant(factor * Length::one()),
+            Melody::Pause(_) => Self::constant(factor * &Length::one()),
+            Melody::Note(_, _) => Self::constant(factor * &Length::one()),
 
             Melody::Name(_, name) => Self::variable(
-                factor,
+                factor.clone(),
                 *self
                     .context
                     .get(name)
@@ -24,24 +24,20 @@ impl<N: Note> Checker<'_, '_, N> {
             ),
 
             Melody::Scale(_, scale, melody) => {
-                let factor = factor * scale.clone();
-                self.build(factor, melody)
+                let factor = factor * scale;
+                self.build(&factor, melody)
             }
 
             Melody::Sharp(_, _, melody) => self.build(factor, melody),
             Melody::Offset(_, _, melody) => self.build(factor, melody),
 
-            Melody::Sequence(melodies) => Self::sum(
-                melodies
-                    .iter()
-                    .map(|melody| self.build(factor.clone(), melody)),
-            ),
+            Melody::Sequence(melodies) => {
+                Self::sum(melodies.iter().map(|melody| self.build(factor, melody)))
+            }
 
-            Melody::Stack(melodies) => Self::max(
-                melodies
-                    .iter()
-                    .map(|melody| self.build(factor.clone(), melody)),
-            ),
+            Melody::Stack(melodies) => {
+                Self::max(melodies.iter().map(|melody| self.build(factor, melody)))
+            }
         }
     }
 

@@ -38,7 +38,7 @@ fn simple_sequence() {
     let sequence = [a, b, c];
     let sequence = Melody::Sequence(&sequence);
 
-    let expected = HashMap::from([(Name("it".into()), &sequence)]);
+    let expected = HashMap::from([(Name("it"), &sequence)]);
 
     check_ok(expected, source);
 }
@@ -62,7 +62,7 @@ fn some_scales() {
     let sequence = [first, second];
     let sequence = Melody::Sequence(&sequence);
 
-    let expected = HashMap::from([(Name("it".into()), &sequence)]);
+    let expected = HashMap::from([(Name("it"), &sequence)]);
 
     check_ok(expected, source);
 }
@@ -79,10 +79,10 @@ fn mutual() {
     let a = Melody::Note(s(14, 15), 'A');
     let b = Melody::Note(s(45, 46), 'B');
 
-    let to_it1 = Melody::Name(s(21, 23), Name("it".into()));
-    let to_it2 = Melody::Name(s(60, 62), Name("it".into()));
-    let to_at1 = Melody::Name(s(29, 31), Name("at".into()));
-    let to_at2 = Melody::Name(s(52, 54), Name("at".into()));
+    let to_it1 = Melody::Name(s(21, 23), Name("it"));
+    let to_it2 = Melody::Name(s(60, 62), Name("it"));
+    let to_at1 = Melody::Name(s(29, 31), Name("at"));
+    let to_at2 = Melody::Name(s(52, 54), Name("at"));
 
     let half_it1 = Melody::Scale(s(17, 20), Factor(r(1, 2)), &to_it1);
     let half_it2 = Melody::Scale(s(56, 59), Factor(r(1, 2)), &to_it2);
@@ -95,7 +95,7 @@ fn mutual() {
     let at = [b, third_at2, half_it2];
     let at = Melody::Sequence(&at);
 
-    let expected = HashMap::from([(Name("it".into()), &it), (Name("at".into()), &at)]);
+    let expected = HashMap::from([(Name("it"), &it), (Name("at"), &at)]);
 
     check_ok(expected, source);
 }
@@ -106,7 +106,7 @@ fn some_comments() {
     let s = span_in(source);
 
     let a = Melody::Pause(s(16, 18));
-    let expected = HashMap::from([(Name("it".into()), &a)]);
+    let expected = HashMap::from([(Name("it"), &a)]);
 
     check_ok(expected, source);
 }
@@ -119,7 +119,7 @@ fn sharps() {
     let a = Melody::Note(s(6, 7), 'a');
     let inner = Melody::Sharp(s(7, 8), 1, &a);
     let outer = Melody::Sharp(s(9, 11), 2, &inner);
-    let expected = HashMap::from([(Name("it".into()), &outer)]);
+    let expected = HashMap::from([(Name("it"), &outer)]);
 
     check_ok(expected, source);
 }
@@ -132,7 +132,7 @@ fn offsets() {
     let a = Melody::Note(s(6, 7), 'a');
     let inner = Melody::Offset(s(7, 9), 1, &a);
     let outer = Melody::Offset(s(10, 12), -1, &inner);
-    let expected = HashMap::from([(Name("it".into()), &outer)]);
+    let expected = HashMap::from([(Name("it"), &outer)]);
 
     check_ok(expected, source);
 }

@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        let entry = Name("it".into());
+        let entry = Name("it");
         let eval = Evaluator::new(program.defs, entry).with_max_depth(MAX_DEPTH);
         let path = Path::new(path);
 

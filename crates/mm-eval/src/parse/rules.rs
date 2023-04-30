@@ -23,26 +23,26 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
                 });
             }
 
-            program.defs.insert(name.clone(), body);
+            program.defs.insert(name, body);
             program.spans.insert(name, name_span);
         }
 
         program
     }
 
-    fn definition(&mut self) -> Option<(Name, Span<'src>, &'a Melody<'a, 'src, N>)> {
+    fn definition(&mut self) -> Option<(Name<'src>, Span<'src>, &'a Melody<'a, 'src, N>)> {
         let (name, name_span) = match self.advance() {
             Some((Token::Name(name), span)) => {
                 if N::parse(name).is_some() {
                     self.errors.push(Error::ExpectedName(span));
                 }
 
-                (Name(name.into()), span)
+                (Name(name), span)
             }
 
             _ => {
                 self.errors.push(Error::ExpectedName(self.span));
-                (Name("[error]".into()), self.span)
+                (Name("[error]"), self.span)
             }
         };
 
@@ -129,7 +129,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         let melody = match self.advance() {
             Some((Token::Name(n), span)) => match N::parse(n) {
                 Some(note) => Melody::Note(span, note),
-                None => Melody::Name(span, Name(n.into())),
+                None => Melody::Name(span, Name(n)),
             },
 
             Some((Token::Pause, span)) => Melody::Pause(span),

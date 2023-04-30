@@ -12,13 +12,13 @@ use crate::{Factor, Length, Name, Time};
 pub const DEFAULT_MAX_DEPTH: usize = 10;
 
 pub struct Evaluator<'a, 'src, N> {
-    program: HashMap<Name, &'a Melody<'a, 'src, N>>,
-    entry: Name,
+    program: HashMap<Name<'src>, &'a Melody<'a, 'src, N>>,
+    entry: Name<'src>,
     max_depth: usize,
 }
 
 impl<'a, 'src, N: Note> Evaluator<'a, 'src, N> {
-    pub fn new(program: HashMap<Name, &'a Melody<'a, 'src, N>>, entry: Name) -> Self {
+    pub fn new(program: HashMap<Name<'src>, &'a Melody<'a, 'src, N>>, entry: Name<'src>) -> Self {
         Self {
             program,
             entry,
@@ -108,7 +108,7 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
             match &next.melody.node {
                 Node::Pause => {}
                 Node::Note(note) => {
-                    let length = next.melody.length.clone() * factor;
+                    let length = &next.melody.length * &factor;
                     let note = note.add_octave(offset).add_sharp(sharps);
                     return Some((note, span, start, length));
                 }
@@ -175,7 +175,7 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                 Node::Sequence(melodies) => {
                     let mut start = start;
                     for melody in *melodies {
-                        let length = melody.length.clone();
+                        let length = &melody.length;
                         self.queue.push(NextMelody {
                             melody,
                             depth,
@@ -189,7 +189,7 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                             break;
                         }
 
-                        start = start.clone() + factor.clone() * length;
+                        start = &start + &(&factor * length);
                     }
                 }
 

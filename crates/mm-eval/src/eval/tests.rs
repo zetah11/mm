@@ -14,7 +14,7 @@ fn r(n: i128, d: i128) -> BigRational {
 }
 
 fn check(expected: Vec<(char, Span, Time, Length)>, program: HashMap<Name, &Melody<char>>) {
-    let eval = Evaluator::new(program, Name("it".into()));
+    let eval = Evaluator::new(program, Name("it"));
     let actual: Vec<_> = eval.iter().collect();
     assert_eq!(expected, actual);
 }
@@ -48,7 +48,7 @@ fn simple_sequence() {
         span,
     };
 
-    let program = HashMap::from([(Name("it".into()), &melody)]);
+    let program = HashMap::from([(Name("it"), &melody)]);
 
     let expected = vec![
         ('a', span, Time(r(0, 1)), Length::one()),
@@ -87,7 +87,7 @@ fn simple_stack() {
         span,
     };
 
-    let program = HashMap::from([(Name("it".into()), &melody)]);
+    let program = HashMap::from([(Name("it"), &melody)]);
 
     let expected = vec![
         ('a', span, Time::zero(), Length::one()),
@@ -114,7 +114,7 @@ fn unending_stack() {
     };
 
     let to_bot = Melody {
-        node: Node::Name(Name("bot".into())),
+        node: Node::Name(Name("bot")),
         length: Length::Unbounded,
         span,
     };
@@ -132,7 +132,7 @@ fn unending_stack() {
     };
 
     let to_top = Melody {
-        node: Node::Name(Name("top".into())),
+        node: Node::Name(Name("top")),
         length: Length::Unbounded,
         span,
     };
@@ -159,12 +159,12 @@ fn unending_stack() {
     };
 
     let program = HashMap::from([
-        (Name("bot".into()), &bot),
-        (Name("top".into()), &top),
-        (Name("stack".into()), &stack),
+        (Name("bot"), &bot),
+        (Name("top"), &top),
+        (Name("stack"), &stack),
     ]);
 
-    let evaluator = Evaluator::new(program, Name("stack".into())).with_max_depth(5);
+    let evaluator = Evaluator::new(program, Name("stack")).with_max_depth(5);
 
     let expected = vec![
         ('a', span, Time(r(0, 1)), Length::one()),
@@ -197,7 +197,7 @@ fn fractal() {
     };
 
     let to_fractal = Melody {
-        node: Node::Name(Name("fractal".into())),
+        node: Node::Name(Name("fractal")),
         length: Length::Bounded(r(2, 1)),
         span,
     };
@@ -215,9 +215,9 @@ fn fractal() {
         span,
     };
 
-    let program = HashMap::from([(Name("fractal".into()), &melody)]);
+    let program = HashMap::from([(Name("fractal"), &melody)]);
 
-    let evaluator = Evaluator::new(program, Name("fractal".into())).with_max_depth(5);
+    let evaluator = Evaluator::new(program, Name("fractal")).with_max_depth(5);
 
     let expected = vec![
         ('a', span, Time(r(0, 1)), Length::Bounded(r(1, 1))),

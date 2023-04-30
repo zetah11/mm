@@ -5,8 +5,8 @@ use crate::{Factor, Name};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program<'a, 'src, N> {
-    pub defs: HashMap<Name, &'a Melody<'a, 'src, N>>,
-    pub spans: HashMap<Name, Span<'src>>,
+    pub defs: HashMap<Name<'src>, &'a Melody<'a, 'src, N>>,
+    pub spans: HashMap<Name<'src>, Span<'src>>,
 }
 
 impl<N> Program<'_, '_, N> {
@@ -31,7 +31,7 @@ impl<N> Default for Program<'_, '_, N> {
 pub enum Melody<'a, 'src, N> {
     Pause(Span<'src>),
     Note(Span<'src>, N),
-    Name(Span<'src>, Name),
+    Name(Span<'src>, Name<'src>),
     Scale(Span<'src>, Factor, &'a Melody<'a, 'src, N>),
     Sharp(Span<'src>, usize, &'a Melody<'a, 'src, N>),
     Offset(Span<'src>, isize, &'a Melody<'a, 'src, N>),
