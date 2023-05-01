@@ -11,10 +11,10 @@ use crate::{Factor, Name};
 
 impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
     pub(super) fn parse_program(&mut self) -> Program<'a, 'src, N> {
-        let mut program = Program::new();
+        let mut program = Program::new(self.span);
 
         while self.next.is_some() {
-            let Some((name, name_span, body)) = self.definition() else { continue; };
+            let Some((name, name_span, is_public, body)) = self.definition() else { continue; };
 
             if let Some(previous) = program.spans.get(&name).copied() {
                 self.errors.push(Error::Redefinition {
@@ -25,12 +25,16 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
 
             program.defs.insert(name, body);
             program.spans.insert(name, name_span);
+
+            if is_public {
+                program.public.push(name);
+            }
         }
 
         program
     }
 
-    fn definition(&mut self) -> Option<(Name<'src>, Span<'src>, &'a Melody<'a, 'src, N>)> {
+    fn definition(&mut self) -> Option<(Name<'src>, Span<'src>, bool, &'a Melody<'a, 'src, N>)> {
         let (name, name_span) = match self.advance() {
             Some((Token::Name(name), span)) => {
                 if N::parse(name).is_some() {
@@ -46,6 +50,8 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
             }
         };
 
+        let is_public = self.consume(Token::Exclaim).is_some();
+
         if self.consume(Token::Equal).is_none() {
             self.errors.push(Error::ExpectedEqual(self.span));
             return None;
@@ -53,7 +59,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
 
         let body = self.expression();
         let body = self.arena.alloc(body);
-        Some((name, name_span, body))
+        Some((name, name_span, is_public, body))
     }
 
     fn expression(&mut self) -> Melody<'a, 'src, N> {

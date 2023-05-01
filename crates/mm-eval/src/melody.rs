@@ -7,6 +7,7 @@ use crate::{Factor, Length, Name};
 pub struct Program<'a, 'src, N> {
     pub defs: HashMap<Name<'src>, &'a Melody<'a, 'src, N>>,
     pub spans: HashMap<Name<'src>, Span<'src>>,
+    pub public: Vec<Name<'src>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

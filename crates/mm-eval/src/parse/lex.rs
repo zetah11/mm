@@ -29,6 +29,8 @@ pub enum Token<'src> {
 
     #[token("#")]
     Sharp,
+    #[token("!")]
+    Exclaim,
 
     #[token("(")]
     LeftParen,

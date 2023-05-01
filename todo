@@ -1,6 +1,7 @@
 CLI
 [x] svg output
 [ ] max-notes option
+[ ] entry option
 [ ] only produces notes until a certain time point
 
 Correctness
@@ -18,7 +19,7 @@ Errors
 [x] span information
 [x] report multiple checking errors for the same definition
 [x] report parse errors
-[ ] report unknown entry error
+[x] report unknown entry error
 [x] report unknown name error
 
 Performance

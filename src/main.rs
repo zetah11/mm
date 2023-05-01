@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use mm_eval::eval::Evaluator;
-use mm_eval::Name;
 use mm_media::midi::Pitch;
 use mm_media::{midi, svg};
 use notify_debouncer_mini::notify::RecursiveMode;
@@ -53,7 +52,7 @@ fn compile(
     let sources = sources.cache();
 
     for (path, source) in sources.iter() {
-        let program = match mm_eval::compile(&implicits, &explicits, source) {
+        let mut program = match mm_eval::compile(&implicits, &explicits, source) {
             Ok(program) => program,
             Err(es) => {
                 let mut writer = stderr().lock();
@@ -66,7 +65,12 @@ fn compile(
             }
         };
 
-        let entry = Name("it");
+        if program.public.len() != 1 {
+            eprintln!("Multiple possible entrypoints. Skipping.");
+            continue;
+        }
+
+        let entry = program.public.pop().unwrap();
         let eval = Evaluator::new(program.defs, entry).with_max_depth(MAX_DEPTH);
         let path = Path::new(path);
 

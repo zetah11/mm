@@ -1,7 +1,7 @@
 ; mm syntactical grammar
 
 program    = *definition
-definition = NAME "=" expression
+definition = NAME ["!"] "=" expression
 
 expression = stack
 stack      = sequence *("|" sequence)

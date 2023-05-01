@@ -1,4 +1,4 @@
-it = 4 (mel, (mel | arp), (mel | arp | bss))
+it! = 4 (mel, (mel | arp), (mel | arp | bss))
 
 mel = 1/15 (fst, fst, fst, thn)       -- thirds
 arp = 1/5 (dmin, fmaj, gmaj, bees)-1  -- fifths

@@ -1,4 +1,4 @@
-it = 5 (three | five) | chord
+it! = 5 (three | five) | chord
 
 three = 1/3 (G, A, A#)
 five  = 1/5 (C, D, E, D, C)

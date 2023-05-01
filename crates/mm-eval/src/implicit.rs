@@ -7,22 +7,17 @@ use crate::{Factor, Name};
 pub struct Program<'a, 'src, N> {
     pub defs: HashMap<Name<'src>, &'a Melody<'a, 'src, N>>,
     pub spans: HashMap<Name<'src>, Span<'src>>,
+    pub public: Vec<Name<'src>>,
+    pub source: Span<'src>,
 }
 
-impl<N> Program<'_, '_, N> {
-    pub fn new() -> Self {
+impl<'src, N> Program<'_, 'src, N> {
+    pub fn new(source: Span<'src>) -> Self {
         Self {
             defs: HashMap::new(),
             spans: HashMap::new(),
-        }
-    }
-}
-
-impl<N> Default for Program<'_, '_, N> {
-    fn default() -> Self {
-        Self {
-            defs: HashMap::default(),
-            spans: HashMap::default(),
+            public: Vec::new(),
+            source,
         }
     }
 }

@@ -20,6 +20,7 @@ use self::equation::{Equation, Variable};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error<'src> {
+    NoPublicNames(Span<'src>),
     UnknownName(Span<'src>, &'src str),
     UnboundedNotLast(Span<'src>),
 }
@@ -35,10 +36,15 @@ pub fn check<'a, 'src, N: Note>(
         checker.check_component(&program.defs, names);
     }
 
+    if program.public.is_empty() {
+        checker.errors.push(Error::NoPublicNames(program.source));
+    }
+
     if checker.errors.is_empty() {
         Ok(melody::Program {
             defs: checker.defs,
             spans: program.spans,
+            public: program.public,
         })
     } else {
         Err(checker.errors)

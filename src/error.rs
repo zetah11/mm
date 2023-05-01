@@ -163,6 +163,13 @@ fn make_report(e: Error) -> Report<Span> {
                 .finish()
         }
 
+        Error::Check(check::Error::NoPublicNames(at)) => {
+            Report::build(ReportKind::Error, at.source, at.start)
+                .with_message("No exported melody")
+                .with_note("Follow a name with an exclamation mark (`it! = ...`) to export it")
+                .finish()
+        }
+
         Error::Check(check::Error::UnknownName(at, name)) => {
             Report::build(ReportKind::Error, at.source, at.start)
                 .with_message(format!("Unknown name '{name}'"))

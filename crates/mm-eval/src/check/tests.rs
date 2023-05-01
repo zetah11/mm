@@ -23,6 +23,8 @@ fn check_ok(
         implicit::Program {
             defs: program,
             spans: HashMap::new(),
+            public: vec![Name("it")],
+            source: span(),
         },
     )
     .map(|program| program.defs);
@@ -37,6 +39,8 @@ fn check_err(expected: Vec<Error>, program: HashMap<Name, &implicit::Melody<char
         implicit::Program {
             defs: program,
             spans: HashMap::new(),
+            public: vec![Name("it")],
+            source: span(),
         },
     );
 
