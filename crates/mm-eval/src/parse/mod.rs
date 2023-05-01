@@ -10,6 +10,7 @@ use typed_arena::Arena;
 use crate::implicit::{Melody, Program};
 use crate::note::Note;
 use crate::span::Span;
+use crate::Length;
 
 use self::lex::Token;
 
@@ -52,6 +53,18 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         let parsed = parser.parse_program();
         if parser.errors.is_empty() {
             Ok(parsed)
+        } else {
+            Err(parser.errors)
+        }
+    }
+
+    pub fn parse_length(source: &'src str) -> Result<Length, Vec<Error<'src>>> {
+        let arena = Arena::new();
+        let mut parser: Parser<char> = Parser::new(&arena, source);
+        parser.advance();
+        let (parsed, _) = parser.parse_factor();
+        if parser.errors.is_empty() {
+            Ok(Length::Bounded(parsed.0))
         } else {
             Err(parser.errors)
         }

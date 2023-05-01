@@ -4,6 +4,9 @@ mod tests;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 
+use num_bigint::BigInt;
+use num_rational::BigRational;
+
 use crate::melody::{Melody, Node};
 use crate::note::Note;
 use crate::span::Span;
@@ -15,6 +18,7 @@ pub struct Evaluator<'a, 'src, N> {
     program: HashMap<Name<'src>, &'a Melody<'a, 'src, N>>,
     entry: Name<'src>,
     max_depth: usize,
+    min_length: Length,
 }
 
 impl<'a, 'src, N: Note> Evaluator<'a, 'src, N> {
@@ -23,11 +27,16 @@ impl<'a, 'src, N: Note> Evaluator<'a, 'src, N> {
             program,
             entry,
             max_depth: DEFAULT_MAX_DEPTH,
+            min_length: Length::Bounded(BigRational::new(BigInt::from(1), BigInt::from(512))),
         }
     }
 
     pub fn with_max_depth(self, max_depth: usize) -> Self {
         Self { max_depth, ..self }
+    }
+
+    pub fn with_min_length(self, min_length: Length) -> Self {
+        Self { min_length, ..self }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (N, Span<'src>, Time, Length)> + '_ {
@@ -102,14 +111,15 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
             let sharps = next.sharps;
             let span = next.melody.span;
 
-            if depth >= self.evaluator.max_depth {
+            let length = &next.melody.length * &factor;
+
+            if depth >= self.evaluator.max_depth || length < self.evaluator.min_length {
                 continue;
             }
 
             match &next.melody.node {
                 Node::Pause => {}
                 Node::Note(note) => {
-                    let length = &next.melody.length * &factor;
                     let note = note.add_octave(offset).add_sharp(sharps);
                     return Some((note, span, start, length));
                 }

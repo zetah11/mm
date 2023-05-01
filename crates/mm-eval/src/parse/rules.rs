@@ -34,6 +34,35 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         program
     }
 
+    pub(super) fn parse_factor(&mut self) -> (Factor, Span<'src>) {
+        let (first, mut span) = match self.advance() {
+            Some((Token::Number(s), span)) => (Self::parse_int(s), span),
+            _ => unreachable!(),
+        };
+
+        let second = if self.consume(Token::Slash).is_some() {
+            let (mut num, second_span) =
+                if let Some((Token::Number(s), span)) = self.consume(Token::Number("")) {
+                    (Self::parse_int(s), span)
+                } else {
+                    self.errors.push(Error::ExpectedNumber(self.span));
+                    (BigInt::from(1), span)
+                };
+
+            if num == BigInt::from(0) {
+                self.errors.push(Error::DivisionByZero(second_span));
+                num = BigInt::from(1);
+            }
+
+            span = span + second_span;
+            num
+        } else {
+            BigInt::from(1)
+        };
+
+        (Factor(BigRational::new(first, second)), span)
+    }
+
     fn definition(&mut self) -> Option<(Name<'src>, Span<'src>, bool, &'a Melody<'a, 'src, N>)> {
         let (name, name_span) = match self.advance() {
             Some((Token::Name(name), span)) => {
@@ -98,7 +127,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
 
     fn scale(&mut self) -> Melody<'a, 'src, N> {
         let mut melody = if self.peek(Token::Number("")).is_some() {
-            let (by, factor_span) = self.factor();
+            let (by, factor_span) = self.parse_factor();
             let melody = self.simple();
             let melody = self.arena.alloc(melody);
             Melody::Scale(factor_span, by, melody)
@@ -181,35 +210,6 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         } else {
             todo!()
         }
-    }
-
-    fn factor(&mut self) -> (Factor, Span<'src>) {
-        let (first, mut span) = match self.advance() {
-            Some((Token::Number(s), span)) => (Self::parse_int(s), span),
-            _ => unreachable!(),
-        };
-
-        let second = if self.consume(Token::Slash).is_some() {
-            let (mut num, second_span) =
-                if let Some((Token::Number(s), span)) = self.consume(Token::Number("")) {
-                    (Self::parse_int(s), span)
-                } else {
-                    self.errors.push(Error::ExpectedNumber(self.span));
-                    (BigInt::from(1), span)
-                };
-
-            if num == BigInt::from(0) {
-                self.errors.push(Error::DivisionByZero(second_span));
-                num = BigInt::from(1);
-            }
-
-            span = span + second_span;
-            num
-        } else {
-            BigInt::from(1)
-        };
-
-        (Factor(BigRational::new(first, second)), span)
     }
 
     fn parse_int(s: &str) -> BigInt {
