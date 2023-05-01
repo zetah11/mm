@@ -1,41 +1,61 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::implicit::Melody;
-use crate::Name;
+use crate::{check, Name};
 
 /// Compute the dependency graph of the given program. Each returned entry
 /// contains "outgoing" edges: `a` is in the set of names referred to by `b` if
 /// the definition of `b` refers to `a` at any place.
 pub fn dependencies<'src, N>(
     program: &HashMap<Name<'src>, &Melody<'_, 'src, N>>,
-) -> HashMap<Name<'src>, HashSet<Name<'src>>> {
-    program
+) -> Result<HashMap<Name<'src>, HashSet<Name<'src>>>, Vec<check::Error<'src>>> {
+    let mut errs = Vec::new();
+    let program = program
         .iter()
         .map(|(name, melody)| {
             let mut refers = HashSet::new();
-            compute(&mut refers, melody);
+            if let Err(es) = compute(program, &mut refers, melody) {
+                errs.extend(es);
+            }
             (*name, refers)
         })
-        .collect()
+        .collect();
+
+    errs.is_empty().then_some(program).ok_or(errs)
 }
 
 /// Add the names referred to by `melody` to `within`.
-fn compute<'src, N>(within: &mut HashSet<Name<'src>>, melody: &Melody<'_, 'src, N>) {
+fn compute<'src, N>(
+    program: &HashMap<Name<'src>, &Melody<'_, 'src, N>>,
+    within: &mut HashSet<Name<'src>>,
+    melody: &Melody<'_, 'src, N>,
+) -> Result<(), Vec<check::Error<'src>>> {
     match melody {
-        Melody::Pause(_) | Melody::Note(..) => {}
+        Melody::Pause(_) | Melody::Note(..) => Ok(()),
 
-        Melody::Name(_, name) => {
+        Melody::Name(span, name) => {
             within.insert(*name);
+
+            if !program.contains_key(name) {
+                Err(vec![check::Error::UnknownName(*span, name.0)])
+            } else {
+                Ok(())
+            }
         }
 
-        Melody::Scale(_, _, melody) => compute(within, melody),
-        Melody::Sharp(_, _, melody) => compute(within, melody),
-        Melody::Offset(_, _, melody) => compute(within, melody),
+        Melody::Scale(_, _, melody) => compute(program, within, melody),
+        Melody::Sharp(_, _, melody) => compute(program, within, melody),
+        Melody::Offset(_, _, melody) => compute(program, within, melody),
 
         Melody::Sequence(melodies) | Melody::Stack(melodies) => {
+            let mut errs = vec![];
             for melody in *melodies {
-                compute(within, melody);
+                if let Err(es) = compute(program, within, melody) {
+                    errs.extend(es);
+                }
             }
+
+            errs.is_empty().then_some(()).ok_or(errs)
         }
     }
 }
@@ -64,7 +84,7 @@ mod tests {
 
         let actual = dependencies(&program);
 
-        assert_eq!(expected, actual);
+        assert_eq!(Ok(expected), actual);
     }
 
     #[test]
@@ -83,7 +103,7 @@ mod tests {
 
         let actual = dependencies(&program);
 
-        assert_eq!(expected, actual);
+        assert_eq!(Ok(expected), actual);
     }
 
     #[test]
@@ -112,7 +132,7 @@ mod tests {
 
         let actual = dependencies(&program);
 
-        assert_eq!(expected, actual);
+        assert_eq!(Ok(expected), actual);
     }
 
     #[test]
@@ -131,6 +151,6 @@ mod tests {
 
         let actual = dependencies(&program);
 
-        assert_eq!(expected, actual);
+        assert_eq!(Ok(expected), actual);
     }
 }

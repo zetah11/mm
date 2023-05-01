@@ -1,5 +1,7 @@
 CLI
 [x] svg output
+[ ] max-notes option
+[ ] only produces notes until a certain time point
 
 Correctness
 [ ] hide the inner rationals in Factor, Time, and Length, and enforce them
@@ -17,7 +19,7 @@ Errors
 [x] report multiple checking errors for the same definition
 [x] report parse errors
 [ ] report unknown entry error
-[ ] report unknown name error
+[x] report unknown name error
 
 Performance
 [ ] don't clone the rationals everywhere

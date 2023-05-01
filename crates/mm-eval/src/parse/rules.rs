@@ -42,7 +42,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
 
             _ => {
                 self.errors.push(Error::ExpectedName(self.span));
-                (Name("[error]"), self.span)
+                return None;
             }
         };
 

@@ -28,7 +28,7 @@ pub fn check<'a, 'src, N: Note>(
     arena: &'a Arena<melody::Melody<'a, 'src, N>>,
     program: implicit::Program<'_, 'src, N>,
 ) -> Result<melody::Program<'a, 'src, N>, Vec<Error<'src>>> {
-    let graph = dependencies(&program.defs);
+    let graph = dependencies(&program.defs)?;
     let mut checker = Checker::new(arena);
 
     for names in topology::order(&graph) {

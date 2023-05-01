@@ -23,16 +23,15 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
                     .get(name)
                     .expect("all names are given variables");
 
-                match self.lengths.get(var) {
-                    Some(length) if component.contains(name) && !length.is_unbounded() => {
-                        (melody::Node::Recur(*name), length.clone())
-                    }
+                let length = self
+                    .lengths
+                    .get(var)
+                    .expect("unknown names are reported before checking");
 
-                    Some(length) => (melody::Node::Name(*name), length.clone()),
-                    None => {
-                        self.errors.push(Error::UnknownName(span, name.0));
-                        (melody::Node::Pause, Length::one())
-                    }
+                if component.contains(name) && !length.is_unbounded() {
+                    (melody::Node::Recur(*name), length.clone())
+                } else {
+                    (melody::Node::Name(*name), length.clone())
                 }
             }
 
