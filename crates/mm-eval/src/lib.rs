@@ -19,19 +19,19 @@ mod topology;
 pub struct Name<'src>(pub &'src str);
 
 #[derive(Debug)]
-pub enum Error<'src> {
-    Parse(parse::Error<'src>),
-    Check(check::Error<'src>),
+pub enum Error<'src, Id> {
+    Parse(parse::Error<Id>),
+    Check(check::Error<'src, Id>),
 }
 
-impl<'src> From<check::Error<'src>> for Error<'src> {
-    fn from(value: check::Error<'src>) -> Self {
+impl<'src, Id> From<check::Error<'src, Id>> for Error<'src, Id> {
+    fn from(value: check::Error<'src, Id>) -> Self {
         Self::Check(value)
     }
 }
 
-impl<'src> From<parse::Error<'src>> for Error<'src> {
-    fn from(value: parse::Error<'src>) -> Self {
+impl<Id> From<parse::Error<Id>> for Error<'_, Id> {
+    fn from(value: parse::Error<Id>) -> Self {
         Self::Parse(value)
     }
 }

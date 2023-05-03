@@ -14,15 +14,15 @@ fn r(n: i128, d: i128) -> BigRational {
     BigRational::new(BigInt::from(n), BigInt::from(d))
 }
 
-fn check_ok(expected: HashMap<Name, &Melody<char>>, source: &str) {
+fn check_ok(expected: HashMap<Name, &Melody<char, &str>>, source: &str) {
     let arena = Arena::new();
-    let actual = Parser::parse(&arena, source).map(|program| program.defs);
+    let actual = Parser::parse(&arena, source, source).map(|program| program.defs);
     assert_eq!(Ok(expected), actual);
 }
 
-fn check_err(expected: Vec<Error>, source: &str) {
-    let arena: Arena<Melody<char>> = Arena::new();
-    let actual = Parser::parse(&arena, source);
+fn check_err(expected: Vec<Error<&str>>, source: &str) {
+    let arena: Arena<Melody<char, _>> = Arena::new();
+    let actual = Parser::parse(&arena, source, source);
     assert_eq!(Err(expected), actual);
 }
 

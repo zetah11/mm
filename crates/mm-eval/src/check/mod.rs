@@ -19,16 +19,16 @@ use crate::{implicit, melody, topology, Length, Name};
 use self::equation::{Equation, Variable};
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum Error<'src> {
-    NoPublicNames(Span<'src>),
-    UnknownName(Span<'src>, &'src str),
-    UnboundedNotLast(Span<'src>),
+pub enum Error<'src, Id> {
+    NoPublicNames(Span<Id>),
+    UnknownName(Span<Id>, &'src str),
+    UnboundedNotLast(Span<Id>),
 }
 
-pub fn check<'a, 'src, N: Note>(
-    arena: &'a Arena<melody::Melody<'a, 'src, N>>,
-    program: implicit::Program<'_, 'src, N>,
-) -> Result<melody::Program<'a, 'src, N>, Vec<Error<'src>>> {
+pub fn check<'a, 'src, N: Note, Id: Clone + Eq>(
+    arena: &'a Arena<melody::Melody<'a, 'src, N, Id>>,
+    program: implicit::Program<'_, 'src, N, Id>,
+) -> Result<melody::Program<'a, 'src, N, Id>, Vec<Error<'src, Id>>> {
     let graph = dependencies(&program.defs)?;
     let mut checker = Checker::new(arena);
 
@@ -51,18 +51,18 @@ pub fn check<'a, 'src, N: Note>(
     }
 }
 
-struct Checker<'a, 'src, N> {
-    arena: &'a Arena<melody::Melody<'a, 'src, N>>,
-    defs: HashMap<Name<'src>, &'a melody::Melody<'a, 'src, N>>,
+struct Checker<'a, 'src, N, Id> {
+    arena: &'a Arena<melody::Melody<'a, 'src, N, Id>>,
+    defs: HashMap<Name<'src>, &'a melody::Melody<'a, 'src, N, Id>>,
     context: HashMap<Name<'src>, Variable>,
     lengths: HashMap<Variable, Length>,
     counter: usize,
 
-    errors: Vec<Error<'src>>,
+    errors: Vec<Error<'src, Id>>,
 }
 
-impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
-    pub fn new(arena: &'a Arena<melody::Melody<'a, 'src, N>>) -> Self {
+impl<'a, 'src, N: Note, Id: Clone + Eq> Checker<'a, 'src, N, Id> {
+    pub fn new(arena: &'a Arena<melody::Melody<'a, 'src, N, Id>>) -> Self {
         Self {
             arena,
             defs: HashMap::new(),
@@ -76,7 +76,7 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
 
     pub fn check_component(
         &mut self,
-        program: &HashMap<Name<'src>, &implicit::Melody<'_, 'src, N>>,
+        program: &HashMap<Name<'src>, &implicit::Melody<'_, 'src, N, Id>>,
         names: HashSet<&Name<'src>>,
     ) {
         for name in names.iter() {

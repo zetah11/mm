@@ -14,8 +14,8 @@ fn r(n: i128, d: i128) -> BigRational {
 }
 
 fn check_ok(
-    expected: HashMap<Name, &melody::Melody<char>>,
-    program: HashMap<Name, &implicit::Melody<char>>,
+    expected: HashMap<Name, &melody::Melody<char, &str>>,
+    program: HashMap<Name, &implicit::Melody<char, &str>>,
 ) {
     let arena = Arena::new();
     let actual = super::check(
@@ -32,7 +32,7 @@ fn check_ok(
     assert_eq!(Ok(expected), actual);
 }
 
-fn check_err(expected: Vec<Error>, program: HashMap<Name, &implicit::Melody<char>>) {
+fn check_err(expected: Vec<Error<&str>>, program: HashMap<Name, &implicit::Melody<char, &str>>) {
     let arena = Arena::new();
     let actual = super::check(
         &arena,

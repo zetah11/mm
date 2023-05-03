@@ -14,15 +14,18 @@ use crate::{Factor, Length, Name, Time};
 
 pub const DEFAULT_MAX_DEPTH: usize = 10;
 
-pub struct Evaluator<'a, 'src, N> {
-    program: HashMap<Name<'src>, &'a Melody<'a, 'src, N>>,
+pub struct Evaluator<'a, 'src, N, Id> {
+    program: HashMap<Name<'src>, &'a Melody<'a, 'src, N, Id>>,
     entry: Name<'src>,
     max_depth: usize,
     min_length: Length,
 }
 
-impl<'a, 'src, N: Note> Evaluator<'a, 'src, N> {
-    pub fn new(program: HashMap<Name<'src>, &'a Melody<'a, 'src, N>>, entry: Name<'src>) -> Self {
+impl<'a, 'src, N: Note, Id: Clone> Evaluator<'a, 'src, N, Id> {
+    pub fn new(
+        program: HashMap<Name<'src>, &'a Melody<'a, 'src, N, Id>>,
+        entry: Name<'src>,
+    ) -> Self {
         Self {
             program,
             entry,
@@ -39,7 +42,7 @@ impl<'a, 'src, N: Note> Evaluator<'a, 'src, N> {
         Self { min_length, ..self }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (N, Span<'src>, Time, Length)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (N, Span<Id>, Time, Length)> + '_ {
         let melody = *self.program.get(&self.entry).expect("entry exists");
         let start = Time::zero();
         let factor = Factor::one();
@@ -60,8 +63,8 @@ impl<'a, 'src, N: Note> Evaluator<'a, 'src, N> {
 }
 
 #[derive(Debug)]
-struct NextMelody<'a, 'src, N> {
-    melody: &'a Melody<'a, 'src, N>,
+struct NextMelody<'a, 'src, N, Id> {
+    melody: &'a Melody<'a, 'src, N, Id>,
     depth: usize,
     start: Time,
 
@@ -70,23 +73,23 @@ struct NextMelody<'a, 'src, N> {
     sharps: usize,
 }
 
-impl<N> Eq for NextMelody<'_, '_, N> {
+impl<N, Id> Eq for NextMelody<'_, '_, N, Id> {
     fn assert_receiver_is_total_eq(&self) {}
 }
 
-impl<N> PartialEq for NextMelody<'_, '_, N> {
+impl<N, Id> PartialEq for NextMelody<'_, '_, N, Id> {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other).is_eq()
     }
 }
 
-impl<N> PartialOrd for NextMelody<'_, '_, N> {
+impl<N, Id> PartialOrd for NextMelody<'_, '_, N, Id> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<N> Ord for NextMelody<'_, '_, N> {
+impl<N, Id> Ord for NextMelody<'_, '_, N, Id> {
     fn cmp(&self, other: &Self) -> Ordering {
         let Time(this) = &self.start;
         let Time(other) = &other.start;
@@ -94,13 +97,13 @@ impl<N> Ord for NextMelody<'_, '_, N> {
     }
 }
 
-struct Iter<'a, 'src, N> {
-    evaluator: &'a Evaluator<'a, 'src, N>,
-    queue: BinaryHeap<NextMelody<'a, 'src, N>>,
+struct Iter<'a, 'src, N, Id> {
+    evaluator: &'a Evaluator<'a, 'src, N, Id>,
+    queue: BinaryHeap<NextMelody<'a, 'src, N, Id>>,
 }
 
-impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
-    type Item = (N, Span<'src>, Time, Length);
+impl<'a, 'src, N: Note, Id: Clone> Iterator for Iter<'a, 'src, N, Id> {
+    type Item = (N, Span<Id>, Time, Length);
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(next) = self.queue.pop() {
@@ -109,7 +112,6 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
             let factor = next.factor;
             let offset = next.offset;
             let sharps = next.sharps;
-            let span = next.melody.span;
 
             let length = &next.melody.length * &factor;
 
@@ -121,7 +123,7 @@ impl<'a, 'src, N: Note> Iterator for Iter<'a, 'src, N> {
                 Node::Pause => {}
                 Node::Note(note) => {
                     let note = note.add_octave(offset).add_sharp(sharps);
-                    return Some((note, span, start, length));
+                    return Some((note, next.melody.span.clone(), start, length));
                 }
 
                 Node::Recur(name) => {

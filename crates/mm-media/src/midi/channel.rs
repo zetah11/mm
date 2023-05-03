@@ -14,8 +14,8 @@ use super::Pitch;
 /// channel.
 ///
 /// `ticks_per_beat` determines how many ticks a note of length `1` should last.
-pub fn write_channel<'src>(
-    notes: impl Iterator<Item = (Pitch, Span<'src>, Time, Length)>,
+pub fn write_channel<Id>(
+    notes: impl Iterator<Item = (Pitch, Span<Id>, Time, Length)>,
     ticks_per_beat: usize,
     channel: u4,
     track: &mut Vec<TrackEvent>,

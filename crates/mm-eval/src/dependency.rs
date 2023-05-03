@@ -6,9 +6,9 @@ use crate::{check, Name};
 /// Compute the dependency graph of the given program. Each returned entry
 /// contains "outgoing" edges: `a` is in the set of names referred to by `b` if
 /// the definition of `b` refers to `a` at any place.
-pub fn dependencies<'src, N>(
-    program: &HashMap<Name<'src>, &Melody<'_, 'src, N>>,
-) -> Result<HashMap<Name<'src>, HashSet<Name<'src>>>, Vec<check::Error<'src>>> {
+pub fn dependencies<'src, N, Id: Clone>(
+    program: &HashMap<Name<'src>, &Melody<'_, 'src, N, Id>>,
+) -> Result<HashMap<Name<'src>, HashSet<Name<'src>>>, Vec<check::Error<'src, Id>>> {
     let mut errs = Vec::new();
     let program = program
         .iter()
@@ -25,11 +25,11 @@ pub fn dependencies<'src, N>(
 }
 
 /// Add the names referred to by `melody` to `within`.
-fn compute<'src, N>(
-    program: &HashMap<Name<'src>, &Melody<'_, 'src, N>>,
+fn compute<'src, N, Id: Clone>(
+    program: &HashMap<Name<'src>, &Melody<'_, 'src, N, Id>>,
     within: &mut HashSet<Name<'src>>,
-    melody: &Melody<'_, 'src, N>,
-) -> Result<(), Vec<check::Error<'src>>> {
+    melody: &Melody<'_, 'src, N, Id>,
+) -> Result<(), Vec<check::Error<'src, Id>>> {
     match melody {
         Melody::Pause(_) | Melody::Note(..) => Ok(()),
 
@@ -37,7 +37,7 @@ fn compute<'src, N>(
             within.insert(*name);
 
             if !program.contains_key(name) {
-                Err(vec![check::Error::UnknownName(*span, name.0)])
+                Err(vec![check::Error::UnknownName(span.clone(), name.0)])
             } else {
                 Ok(())
             }
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn chain() {
-        let a: Melody<char> = Melody::Pause(span());
+        let a: Melody<char, _> = Melody::Pause(span());
         let b = Melody::Name(span(), Name("a"));
         let c = Melody::Name(span(), Name("b"));
 
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn fork_join() {
-        let a: Melody<char> = Melody::Pause(span());
+        let a: Melody<char, _> = Melody::Pause(span());
         let to_a = Melody::Name(span(), Name("a"));
         let to_b = Melody::Name(span(), Name("b"));
         let to_c = Melody::Name(span(), Name("c"));
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn cycles() {
-        let a: Melody<char> = Melody::Name(span(), Name("c"));
+        let a: Melody<char, _> = Melody::Name(span(), Name("c"));
         let b = Melody::Name(span(), Name("a"));
         let c = Melody::Name(span(), Name("b"));
 

@@ -17,8 +17,8 @@ use self::channel::write_channel;
 const TICKS_PER_BEAT: usize = 128;
 
 /// Write the given notes to a MIDI file at the given path.
-pub fn write<'src>(
-    notes: impl Iterator<Item = (Pitch, Span<'src>, Time, Length)>,
+pub fn write<Id>(
+    notes: impl Iterator<Item = (Pitch, Span<Id>, Time, Length)>,
     to: impl AsRef<Path>,
 ) -> Result<(), io::Error> {
     let mut track = vec![TrackEvent {

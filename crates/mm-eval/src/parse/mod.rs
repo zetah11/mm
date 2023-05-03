@@ -15,40 +15,35 @@ use crate::Length;
 use self::lex::Token;
 
 #[derive(Debug, Eq, Hash, PartialEq)]
-pub enum Error<'src> {
-    ExpectedEqual(Span<'src>),
-    ExpectedName(Span<'src>),
-    ExpectedNote(Span<'src>),
-    ExpectedNumber(Span<'src>),
+pub enum Error<Id> {
+    ExpectedEqual(Span<Id>),
+    ExpectedName(Span<Id>),
+    ExpectedNote(Span<Id>),
+    ExpectedNumber(Span<Id>),
 
-    Redefinition {
-        previous: Span<'src>,
-        new: Span<'src>,
-    },
+    Redefinition { previous: Span<Id>, new: Span<Id> },
 
-    DivisionByZero(Span<'src>),
-    UnclosedParen {
-        opener: Span<'src>,
-        at: Span<'src>,
-    },
+    DivisionByZero(Span<Id>),
+    UnclosedParen { opener: Span<Id>, at: Span<Id> },
 }
 
-pub struct Parser<'a, 'src, N> {
-    source: &'src str,
-    arena: &'a Arena<Melody<'a, 'src, N>>,
+pub struct Parser<'a, 'src, N, Id> {
+    name: Id,
+    arena: &'a Arena<Melody<'a, 'src, N, Id>>,
     lexer: SpannedIter<'src, Token<'src>>,
-    next: Option<(Token<'src>, Span<'src>)>,
-    span: Span<'src>,
+    next: Option<(Token<'src>, Span<Id>)>,
+    span: Span<Id>,
 
-    errors: Vec<Error<'src>>,
+    errors: Vec<Error<Id>>,
 }
 
-impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
+impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
     pub fn parse(
-        arena: &'a Arena<Melody<'a, 'src, N>>,
+        arena: &'a Arena<Melody<'a, 'src, N, Id>>,
+        name: Id,
         source: &'src str,
-    ) -> Result<Program<'a, 'src, N>, Vec<Error<'src>>> {
-        let mut parser = Self::new(arena, source);
+    ) -> Result<Program<'a, 'src, N, Id>, Vec<Error<Id>>> {
+        let mut parser = Self::new(arena, name, source);
         parser.advance();
         let parsed = parser.parse_program();
         if parser.errors.is_empty() {
@@ -58,9 +53,9 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         }
     }
 
-    pub fn parse_length(source: &'src str) -> Result<Length, Vec<Error<'src>>> {
+    pub fn parse_length(name: Id, source: &'src str) -> Result<Length, Vec<Error<Id>>> {
         let arena = Arena::new();
-        let mut parser: Parser<char> = Parser::new(&arena, source);
+        let mut parser: Parser<char, _> = Parser::new(&arena, name, source);
         parser.advance();
         let (parsed, _) = parser.parse_factor();
         if parser.errors.is_empty() {
@@ -70,24 +65,24 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         }
     }
 
-    fn new(arena: &'a Arena<Melody<'a, 'src, N>>, source: &'src str) -> Self {
+    fn new(arena: &'a Arena<Melody<'a, 'src, N, Id>>, name: Id, source: &'src str) -> Self {
         Self {
-            source,
             arena,
             lexer: Token::lexer(source).spanned(),
             next: None,
-            span: Span::new(source, 0..0),
+            span: Span::new(name.clone(), 0..0),
             errors: Vec::new(),
+            name,
         }
     }
 
-    fn advance(&mut self) -> Option<(Token<'src>, Span<'src>)> {
+    fn advance(&mut self) -> Option<(Token<'src>, Span<Id>)> {
         let prev = self.next.take();
 
         for (next, span) in self.lexer.by_ref() {
             if let Ok(token) = next {
-                let span = Span::new(self.source, span);
-                self.next = Some((token, span));
+                let span = Span::new(self.name.clone(), span);
+                self.next = Some((token, span.clone()));
                 self.span = span;
                 break;
             }
@@ -96,15 +91,15 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         prev
     }
 
-    fn peek(&self, m: impl Matcher) -> Option<(Token<'src>, Span<'src>)> {
+    fn peek(&self, m: impl Matcher) -> Option<(Token<'src>, Span<Id>)> {
         if let Some((token, span)) = self.next.as_ref() {
-            m.matches(token).then_some((*token, *span))
+            m.matches(token).then_some((*token, span.clone()))
         } else {
             None
         }
     }
 
-    fn consume(&mut self, m: impl Matcher) -> Option<(Token<'src>, Span<'src>)> {
+    fn consume(&mut self, m: impl Matcher) -> Option<(Token<'src>, Span<Id>)> {
         self.peek(m).map(|v| {
             self.advance();
             v

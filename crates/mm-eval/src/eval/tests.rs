@@ -13,7 +13,10 @@ fn r(n: i128, d: i128) -> BigRational {
     BigRational::new(BigInt::from(n), BigInt::from(d))
 }
 
-fn check(expected: Vec<(char, Span, Time, Length)>, program: HashMap<Name, &Melody<char>>) {
+fn check(
+    expected: Vec<(char, Span<&str>, Time, Length)>,
+    program: HashMap<Name, &Melody<char, &str>>,
+) {
     let eval = Evaluator::new(program, Name("it"));
     let actual: Vec<_> = eval.iter().collect();
     assert_eq!(expected, actual);

@@ -9,17 +9,17 @@ use crate::note::Note;
 use crate::span::Span;
 use crate::{Factor, Name};
 
-impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
-    pub(super) fn parse_program(&mut self) -> Program<'a, 'src, N> {
-        let mut program = Program::new(self.span);
+impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
+    pub(super) fn parse_program(&mut self) -> Program<'a, 'src, N, Id> {
+        let mut program = Program::new(self.span.clone());
 
         while self.next.is_some() {
             let Some((name, name_span, is_public, body)) = self.definition() else { continue; };
 
-            if let Some(previous) = program.spans.get(&name).copied() {
+            if let Some(previous) = program.spans.get(&name).cloned() {
                 self.errors.push(Error::Redefinition {
                     previous,
-                    new: name_span,
+                    new: name_span.clone(),
                 });
             }
 
@@ -34,7 +34,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         program
     }
 
-    pub(super) fn parse_factor(&mut self) -> (Factor, Span<'src>) {
+    pub(super) fn parse_factor(&mut self) -> (Factor, Span<Id>) {
         let (first, mut span) = match self.advance() {
             Some((Token::Number(s), span)) => (Self::parse_int(s), span),
             _ => unreachable!(),
@@ -45,12 +45,12 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
                 if let Some((Token::Number(s), span)) = self.consume(Token::Number("")) {
                     (Self::parse_int(s), span)
                 } else {
-                    self.errors.push(Error::ExpectedNumber(self.span));
-                    (BigInt::from(1), span)
+                    self.errors.push(Error::ExpectedNumber(self.span.clone()));
+                    (BigInt::from(1), span.clone())
                 };
 
             if num == BigInt::from(0) {
-                self.errors.push(Error::DivisionByZero(second_span));
+                self.errors.push(Error::DivisionByZero(second_span.clone()));
                 num = BigInt::from(1);
             }
 
@@ -63,18 +63,18 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         (Factor(BigRational::new(first, second)), span)
     }
 
-    fn definition(&mut self) -> Option<(Name<'src>, Span<'src>, bool, &'a Melody<'a, 'src, N>)> {
+    fn definition(&mut self) -> Option<(Name<'src>, Span<Id>, bool, &'a Melody<'a, 'src, N, Id>)> {
         let (name, name_span) = match self.advance() {
             Some((Token::Name(name), span)) => {
                 if N::parse(name).is_some() {
-                    self.errors.push(Error::ExpectedName(span));
+                    self.errors.push(Error::ExpectedName(span.clone()));
                 }
 
                 (Name(name), span)
             }
 
             _ => {
-                self.errors.push(Error::ExpectedName(self.span));
+                self.errors.push(Error::ExpectedName(self.span.clone()));
                 return None;
             }
         };
@@ -82,7 +82,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         let is_public = self.consume(Token::Exclaim).is_some();
 
         if self.consume(Token::Equal).is_none() {
-            self.errors.push(Error::ExpectedEqual(self.span));
+            self.errors.push(Error::ExpectedEqual(self.span.clone()));
             return None;
         }
 
@@ -91,11 +91,11 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         Some((name, name_span, is_public, body))
     }
 
-    fn expression(&mut self) -> Melody<'a, 'src, N> {
+    fn expression(&mut self) -> Melody<'a, 'src, N, Id> {
         self.stack()
     }
 
-    fn stack(&mut self) -> Melody<'a, 'src, N> {
+    fn stack(&mut self) -> Melody<'a, 'src, N, Id> {
         let mut melodies = vec![self.sequence()];
 
         while self.consume(Token::Pipe).is_some() {
@@ -110,7 +110,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         }
     }
 
-    fn sequence(&mut self) -> Melody<'a, 'src, N> {
+    fn sequence(&mut self) -> Melody<'a, 'src, N, Id> {
         let mut melodies = vec![self.scale()];
 
         while self.consume(Token::Comma).is_some() {
@@ -125,7 +125,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         }
     }
 
-    fn scale(&mut self) -> Melody<'a, 'src, N> {
+    fn scale(&mut self) -> Melody<'a, 'src, N, Id> {
         let mut melody = if self.peek(Token::Number("")).is_some() {
             let (by, factor_span) = self.parse_factor();
             let melody = self.simple();
@@ -136,11 +136,11 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         };
 
         let mut sharps = 0;
-        let mut sharp_span = None;
+        let mut sharp_span: Option<Span<Id>> = None;
         while let Some((_, span)) = self.consume(Token::Sharp) {
             sharps += 1;
             if let Some(sharp_span) = sharp_span.as_mut() {
-                *sharp_span = *sharp_span + span;
+                *sharp_span = sharp_span.clone() + span;
             } else {
                 sharp_span = Some(span);
             }
@@ -160,7 +160,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
         }
     }
 
-    fn simple(&mut self) -> Melody<'a, 'src, N> {
+    fn simple(&mut self) -> Melody<'a, 'src, N, Id> {
         let melody = match self.advance() {
             Some((Token::Name(n), span)) => match N::parse(n) {
                 Some(note) => Melody::Note(span, note),
@@ -175,7 +175,7 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
                 if self.consume(Token::RightParen).is_none() {
                     self.errors.push(Error::UnclosedParen {
                         opener,
-                        at: self.span,
+                        at: self.span.clone(),
                     });
                 }
 
@@ -183,15 +183,15 @@ impl<'a, 'src, N: Note> Parser<'a, 'src, N> {
             }
 
             _ => {
-                self.errors.push(Error::ExpectedNote(self.span));
-                Melody::Pause(self.span)
+                self.errors.push(Error::ExpectedNote(self.span.clone()));
+                Melody::Pause(self.span.clone())
             }
         };
 
         melody
     }
 
-    fn offset(&mut self) -> (isize, Span<'src>) {
+    fn offset(&mut self) -> (isize, Span<Id>) {
         let (sign, span) = match self.advance() {
             Some((Token::Plus, span)) => (1, span),
             Some((Token::Minus, span)) => (-1, span),

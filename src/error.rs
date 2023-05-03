@@ -1,12 +1,16 @@
 use std::collections::HashMap;
 use std::io;
+use std::path::Path;
 
 use ariadne::{Cache, Label, Report, ReportKind, Source};
 use mm_eval::{check, parse, Error};
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct SourceId(usize);
+
 #[derive(Debug, Default)]
 pub struct Sources {
-    sources: Vec<(String, String, Source)>,
+    sources: Vec<(String, String)>,
 }
 
 impl Sources {
@@ -16,10 +20,11 @@ impl Sources {
         }
     }
 
-    pub fn add(&mut self, name: impl Into<String>, source: impl Into<String>) {
+    pub fn add(&mut self, name: impl Into<String>, source: impl Into<String>) -> SourceId {
+        let id = SourceId(self.sources.len());
         let source: String = source.into();
-        let cached = Source::from(source.clone()); // eugh
-        self.sources.push((name.into(), source, cached));
+        self.sources.push((name.into(), source));
+        id
     }
 
     pub fn cache(&self) -> SourceCache {
@@ -29,18 +34,19 @@ impl Sources {
 
 pub struct SourceCache<'src> {
     sources: &'src Sources,
-    map: HashMap<&'src str, usize>,
+    map: HashMap<SourceId, Source>,
 }
 
 impl<'src> SourceCache<'src> {
-    pub fn iter(&self) -> impl Iterator<Item = (&'src str, &'src str)> {
+    pub fn iter(&self) -> impl Iterator<Item = (SourceId, &'src Path, &'src str)> {
         self.sources
             .sources
             .iter()
-            .map(|(name, source, _)| (name.as_str(), source.as_str()))
+            .enumerate()
+            .map(|(index, (path, source))| (SourceId(index), Path::new(path), source.as_str()))
     }
 
-    pub fn report(&self, w: impl io::Write, e: Error<'src>) -> io::Result<()> {
+    pub fn report(&self, w: impl io::Write, e: Error<'src, SourceId>) -> io::Result<()> {
         make_report(e).write(self, w)
     }
 
@@ -49,28 +55,23 @@ impl<'src> SourceCache<'src> {
             .sources
             .iter()
             .enumerate()
-            .map(|(index, (_, source, _))| (source.as_str(), index))
+            .map(|(index, (_, source))| (SourceId(index), Source::from(source.as_str())))
             .collect();
 
         Self { map, sources }
     }
 }
 
-impl<'src> Cache<&'src str> for &'_ SourceCache<'src> {
-    fn fetch(&mut self, id: &&'src str) -> Result<&ariadne::Source, Box<dyn std::fmt::Debug + '_>> {
+impl<'src> Cache<SourceId> for &'_ SourceCache<'src> {
+    fn fetch(&mut self, id: &SourceId) -> Result<&ariadne::Source, Box<dyn std::fmt::Debug + '_>> {
         match self.map.get(id) {
-            Some(index) => Ok(&self.sources.sources[*index].2),
-
+            Some(source) => Ok(source),
             None => Err(Box::new("Unknown source")),
         }
     }
 
-    fn display<'a>(&self, id: &'a &'src str) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        if let Some(index) = self.map.get(id) {
-            Some(Box::new(&self.sources.sources[*index].0))
-        } else {
-            None
-        }
+    fn display<'a>(&self, id: &'a SourceId) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new(self.sources.sources[id.0].0.clone()))
     }
 }
 
@@ -82,7 +83,7 @@ where
     fn from(iter: I) -> Self {
         let mut sources = Self::new();
         for (name, source) in iter {
-            sources.add(name, source)
+            sources.add(name, source);
         }
 
         sources
@@ -90,12 +91,12 @@ where
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-struct Span<'src>(mm_eval::span::Span<'src>);
+struct Span(mm_eval::span::Span<SourceId>);
 
-impl<'src> ariadne::Span for Span<'src> {
-    type SourceId = &'src str;
+impl ariadne::Span for Span {
+    type SourceId = SourceId;
 
-    fn source(&self) -> &Self::SourceId {
+    fn source(&self) -> &SourceId {
         &self.0.source
     }
 
@@ -108,7 +109,7 @@ impl<'src> ariadne::Span for Span<'src> {
     }
 }
 
-fn make_report(e: Error) -> Report<Span> {
+fn make_report(e: Error<SourceId>) -> Report<Span> {
     match e {
         Error::Parse(parse::Error::ExpectedEqual(at)) => {
             Report::build(ReportKind::Error, at.source, at.start)

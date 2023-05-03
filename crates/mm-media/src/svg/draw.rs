@@ -86,7 +86,7 @@ pub struct Label {
     pub y: f64,
 }
 
-pub fn draw<'src>(notes: impl Iterator<Item = (Pitch, Span<'src>, Time, Length)>) -> Canvas {
+pub fn draw<Id>(notes: impl Iterator<Item = (Pitch, Span<Id>, Time, Length)>) -> Canvas {
     let mut canvas = Canvas::new();
 
     let mut pitches = HashSet::new();

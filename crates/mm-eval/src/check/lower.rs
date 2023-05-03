@@ -5,12 +5,12 @@ use crate::{implicit, melody, Length, Name};
 
 use super::{Checker, Error};
 
-impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
+impl<'a, 'src, N: Note, Id: Clone + Eq> Checker<'a, 'src, N, Id> {
     pub fn lower(
         &mut self,
         component: &HashSet<&Name<'src>>,
-        melody: &implicit::Melody<'_, 'src, N>,
-    ) -> melody::Melody<'a, 'src, N> {
+        melody: &implicit::Melody<'_, 'src, N, Id>,
+    ) -> melody::Melody<'a, 'src, N, Id> {
         let span = melody.span();
 
         let (node, length) = match melody {
@@ -67,7 +67,8 @@ impl<'a, 'src, N: Note> Checker<'a, 'src, N> {
 
                 for melody in melodies.iter().rev().skip(1) {
                     if melody.length.is_unbounded() {
-                        self.errors.push(Error::UnboundedNotLast(melody.span));
+                        self.errors
+                            .push(Error::UnboundedNotLast(melody.span.clone()));
                     }
                 }
 

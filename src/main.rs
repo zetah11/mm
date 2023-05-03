@@ -5,6 +5,7 @@ use std::io::{stderr, stdin};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use error::SourceId;
 use mm_eval::eval::Evaluator;
 use mm_media::midi::Pitch;
 use mm_media::{midi, svg};
@@ -51,8 +52,8 @@ fn compile(
     let sources = file::get_sources(paths)?;
     let sources = sources.cache();
 
-    for (path, source) in sources.iter() {
-        let mut program = match mm_eval::compile(&implicits, &explicits, source) {
+    for (id, path, source) in sources.iter() {
+        let mut program = match mm_eval::compile(&implicits, &explicits, id, source) {
             Ok(program) => program,
             Err(es) => {
                 let mut writer = stderr().lock();
@@ -72,7 +73,6 @@ fn compile(
 
         let entry = program.public.pop().unwrap();
         let eval = Evaluator::new(program.defs, entry).with_max_depth(MAX_DEPTH);
-        let path = Path::new(path);
 
         if args.make_midi {
             write(Kind::Midi, path, &eval)?;
@@ -89,7 +89,7 @@ fn compile(
 fn write(
     kind: Kind,
     path: &Path,
-    eval: &Evaluator<Pitch>,
+    eval: &Evaluator<Pitch, SourceId>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let out = path.with_extension(kind.extension());
     let notes = eval.iter().take(MAX_NOTES);

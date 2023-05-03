@@ -15,7 +15,7 @@ enum Solution {
     Unbounded(Vec<Variable>),
 }
 
-impl<N> Checker<'_, '_, N> {
+impl<N, Id> Checker<'_, '_, N, Id> {
     pub fn solve(&mut self, equations: Vec<Equation>) {
         match self.solve_equations(equations) {
             Solution::Solved(lengths) => {

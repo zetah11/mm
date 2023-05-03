@@ -9,8 +9,8 @@ use crate::midi::Pitch;
 mod draw;
 mod render;
 
-pub fn write<'src>(
-    notes: impl Iterator<Item = (Pitch, Span<'src>, Time, Length)>,
+pub fn write<Id>(
+    notes: impl Iterator<Item = (Pitch, Span<Id>, Time, Length)>,
     to: impl AsRef<Path>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let canvas = draw::draw(notes);
