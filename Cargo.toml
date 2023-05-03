@@ -11,7 +11,9 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 mm-eval = { path = "crates/mm-eval" }
+mm-gui = { path = "crates/mm-gui" }
 mm-media = { path = "crates/mm-media" }
 
 ariadne = { version = "0.2", features = ["auto-color"] }
+eframe = { version = "0.21", features = ["dark-light"] }
 notify-debouncer-mini = "0.2"

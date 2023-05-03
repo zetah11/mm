@@ -1,5 +1,6 @@
 mod error;
 mod file;
+mod gui;
 
 use std::io::{stderr, stdin};
 use std::path::{Path, PathBuf};
@@ -46,6 +47,10 @@ fn compile(
     args: &Args,
     paths: impl IntoIterator<Item = PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if args.gui {
+        return gui::run().map_err(Into::into);
+    }
+
     let mut alloc = &Arena::new();
 
     let sources = file::get_sources(paths)?;
@@ -107,6 +112,7 @@ struct Args {
     make_midi: bool,
     make_svg: bool,
     watch: bool,
+    gui: bool,
 }
 
 impl Args {
@@ -126,14 +132,11 @@ impl Args {
             }
         }
 
-        if !(make_midi || make_svg) {
-            make_midi = true;
-        }
-
         let args = Args {
             make_midi,
             make_svg,
             watch,
+            gui: !make_midi && !make_svg,
         };
 
         (args, paths)
