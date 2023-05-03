@@ -4,15 +4,15 @@ use mm_eval::{Length, Time};
 use mm_media::midi::Pitch;
 use num_traits::ToPrimitive;
 
-pub struct NoteView<'a, 'hover> {
-    notes: Vec<(Pitch, Span<'a>, Time, Length)>,
-    hover: &'hover mut Option<Span<'a>>,
+pub struct NoteView<'hover, Id> {
+    notes: Vec<(Pitch, Span<Id>, Time, Length)>,
+    hover: &'hover mut Option<Span<Id>>,
 }
 
-impl<'a, 'hover> NoteView<'a, 'hover> {
+impl<'hover, Id> NoteView<'hover, Id> {
     pub fn new(
-        hover: &'hover mut Option<Span<'a>>,
-        notes: impl IntoIterator<Item = (Pitch, Span<'a>, Time, Length)>,
+        hover: &'hover mut Option<Span<Id>>,
+        notes: impl IntoIterator<Item = (Pitch, Span<Id>, Time, Length)>,
     ) -> Self {
         Self {
             notes: notes.into_iter().collect(),
@@ -21,7 +21,7 @@ impl<'a, 'hover> NoteView<'a, 'hover> {
     }
 }
 
-impl Widget for NoteView<'_, '_> {
+impl<Id> Widget for NoteView<'_, Id> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         let (rect, response) = ui.allocate_at_least(ui.available_size(), Sense::hover());
         let painter = ui.painter();

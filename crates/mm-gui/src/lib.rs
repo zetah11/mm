@@ -17,8 +17,8 @@ it! = (G, A | D, C), 4 F"#;
 #[derive(Debug, Default)]
 pub struct Gui {
     content: String,
-    pitches: Vec<(Pitch, Span<'static>, Time, Length)>,
-    hover: Option<Span<'static>>,
+    pitches: Vec<(Pitch, Span<()>, Time, Length)>,
+    hover: Option<Span<()>>,
 }
 
 impl Gui {
@@ -26,7 +26,7 @@ impl Gui {
         let implicits = Arena::new();
         let explicits = Arena::new();
 
-        let program = compile::<Pitch>(&implicits, &explicits, SOURCE).unwrap();
+        let program = compile(&implicits, &explicits, (), SOURCE).unwrap();
         let eval = Evaluator::new(program.defs, Name("it")).with_max_depth(5);
         let pitches = eval.iter().take(50).collect();
 

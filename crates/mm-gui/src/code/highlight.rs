@@ -3,7 +3,7 @@ use mm_eval::span::Span;
 
 use super::CodeTheme;
 
-pub fn highlight(theme: &CodeTheme, hover: Option<Span>, mut text: &str) -> LayoutJob {
+pub fn highlight(theme: &CodeTheme, hover: Option<Span<()>>, mut text: &str) -> LayoutJob {
     let mut job = LayoutJob::default();
     let mut start = 0;
 
