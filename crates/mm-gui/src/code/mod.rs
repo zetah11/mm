@@ -1,6 +1,7 @@
 pub use highlight::highlight;
 
 mod highlight;
+mod program_buffer;
 
 use egui::{Color32, FontId, Style, TextFormat, TextStyle};
 

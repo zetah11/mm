@@ -1,4 +1,4 @@
-use egui::{pos2, vec2, Color32, Rect, Rounding, Sense, Widget};
+use egui::{pos2, vec2, Color32, Rect, Rounding, Sense, Stroke, Widget};
 use mm_eval::span::Span;
 use mm_eval::{Length, Time};
 use mm_media::midi::Pitch;
@@ -36,7 +36,8 @@ impl<Id> Widget for NoteView<'_, Id> {
         let beat_height = 20.0;
 
         let mut hover_span = None;
-        let color = Color32::DARK_RED;
+        let color = Color32::RED;
+        let stroke_color = Color32::GOLD;
         let rounding = Rounding::same(width / 4.0).at_most(width / 2.0);
 
         for (pitch, at, start, length) in self.notes {
@@ -51,13 +52,19 @@ impl<Id> Widget for NoteView<'_, Id> {
             let height = height * beat_height;
 
             let rect = Rect::from_min_size(pos2(x, y), vec2(width, height));
-            painter.rect_filled(rect, rounding, color);
 
-            if let Some(pos) = hover {
+            let stroke = if let Some(pos) = hover {
                 if rect.contains(pos) {
                     hover_span = Some(at);
+                    Stroke::new(2.0, stroke_color)
+                } else {
+                    Stroke::NONE
                 }
-            }
+            } else {
+                Stroke::NONE
+            };
+
+            painter.rect(rect, rounding, color, stroke);
         }
 
         *self.hover = hover_span;
