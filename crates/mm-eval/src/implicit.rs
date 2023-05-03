@@ -4,14 +4,14 @@ use crate::span::Span;
 use crate::{Factor, Name};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Program<'a, 'src, N, Id> {
-    pub defs: HashMap<Name<'src>, &'a Melody<'a, 'src, N, Id>>,
-    pub spans: HashMap<Name<'src>, Span<Id>>,
-    pub public: Vec<Name<'src>>,
+pub struct Program<'a, N, Id> {
+    pub defs: HashMap<Name, &'a Melody<'a, N, Id>>,
+    pub spans: HashMap<Name, Span<Id>>,
+    pub public: Vec<Name>,
     pub source: Span<Id>,
 }
 
-impl<'src, N, Id> Program<'_, 'src, N, Id> {
+impl<N, Id> Program<'_, N, Id> {
     pub fn new(source: Span<Id>) -> Self {
         Self {
             defs: HashMap::new(),
@@ -23,18 +23,18 @@ impl<'src, N, Id> Program<'_, 'src, N, Id> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Melody<'a, 'src, N, Id> {
+pub enum Melody<'a, N, Id> {
     Pause(Span<Id>),
     Note(Span<Id>, N),
-    Name(Span<Id>, Name<'src>),
-    Scale(Span<Id>, Factor, &'a Melody<'a, 'src, N, Id>),
-    Sharp(Span<Id>, usize, &'a Melody<'a, 'src, N, Id>),
-    Offset(Span<Id>, isize, &'a Melody<'a, 'src, N, Id>),
-    Sequence(&'a [Melody<'a, 'src, N, Id>]),
-    Stack(&'a [Melody<'a, 'src, N, Id>]),
+    Name(Span<Id>, Name),
+    Scale(Span<Id>, Factor, &'a Melody<'a, N, Id>),
+    Sharp(Span<Id>, usize, &'a Melody<'a, N, Id>),
+    Offset(Span<Id>, isize, &'a Melody<'a, N, Id>),
+    Sequence(&'a [Melody<'a, N, Id>]),
+    Stack(&'a [Melody<'a, N, Id>]),
 }
 
-impl<'src, N, Id: Clone + Eq> Melody<'_, 'src, N, Id> {
+impl<N, Id: Clone + Eq> Melody<'_, N, Id> {
     pub fn span(&self) -> Span<Id> {
         match self {
             Self::Pause(span) => span.clone(),

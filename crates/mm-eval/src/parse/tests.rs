@@ -6,7 +6,7 @@ use typed_arena::Arena;
 
 use crate::implicit::Melody;
 use crate::span::span_in;
-use crate::{Factor, Name};
+use crate::{Factor, Name, Names};
 
 use super::{Error, Parser};
 
@@ -14,15 +14,15 @@ fn r(n: i128, d: i128) -> BigRational {
     BigRational::new(BigInt::from(n), BigInt::from(d))
 }
 
-fn check_ok(expected: HashMap<Name, &Melody<char, &str>>, source: &str) {
+fn check_ok(mut names: Names, expected: HashMap<Name, &Melody<char, &str>>, source: &str) {
     let arena = Arena::new();
-    let actual = Parser::parse(&arena, source, source).map(|program| program.defs);
+    let actual = Parser::parse(&mut names, &arena, source, source).map(|program| program.defs);
     assert_eq!(Ok(expected), actual);
 }
 
 fn check_err(expected: Vec<Error<&str>>, source: &str) {
     let arena: Arena<Melody<char, _>> = Arena::new();
-    let actual = Parser::parse(&arena, source, source);
+    let actual = Parser::parse(&mut Names::new(), &arena, source, source);
     assert_eq!(Err(expected), actual);
 }
 
@@ -31,6 +31,9 @@ fn simple_sequence() {
     let source = r#"it = A, B, C"#;
     let s = span_in(source);
 
+    let mut names = Names::new();
+    let mut name = |name| names.make(name);
+
     let a = Melody::Note(s(5, 6), 'A');
     let b = Melody::Note(s(8, 9), 'B');
     let c = Melody::Note(s(11, 12), 'C');
@@ -38,15 +41,18 @@ fn simple_sequence() {
     let sequence = [a, b, c];
     let sequence = Melody::Sequence(&sequence);
 
-    let expected = HashMap::from([(Name("it"), &sequence)]);
+    let expected = HashMap::from([(name("it"), &sequence)]);
 
-    check_ok(expected, source);
+    check_ok(names, expected, source);
 }
 
 #[test]
 fn some_scales() {
     let source = r#"it = 1/2 A, 2/3 (B | C)"#;
     let s = span_in(source);
+
+    let mut names = Names::new();
+    let mut name = |name| names.make(name);
 
     let a = Melody::Note(s(9, 10), 'A');
     let b = Melody::Note(s(17, 18), 'B');
@@ -62,9 +68,9 @@ fn some_scales() {
     let sequence = [first, second];
     let sequence = Melody::Sequence(&sequence);
 
-    let expected = HashMap::from([(Name("it"), &sequence)]);
+    let expected = HashMap::from([(name("it"), &sequence)]);
 
-    check_ok(expected, source);
+    check_ok(names, expected, source);
 }
 
 #[test]
@@ -76,13 +82,16 @@ fn mutual() {
 
     let s = span_in(source);
 
+    let mut names = Names::new();
+    let mut name = |name| names.make(name);
+
     let a = Melody::Note(s(14, 15), 'A');
     let b = Melody::Note(s(45, 46), 'B');
 
-    let to_it1 = Melody::Name(s(21, 23), Name("it"));
-    let to_it2 = Melody::Name(s(60, 62), Name("it"));
-    let to_at1 = Melody::Name(s(29, 31), Name("at"));
-    let to_at2 = Melody::Name(s(52, 54), Name("at"));
+    let to_it1 = Melody::Name(s(21, 23), name("it"));
+    let to_it2 = Melody::Name(s(60, 62), name("it"));
+    let to_at1 = Melody::Name(s(29, 31), name("at"));
+    let to_at2 = Melody::Name(s(52, 54), name("at"));
 
     let half_it1 = Melody::Scale(s(17, 20), Factor(r(1, 2)), &to_it1);
     let half_it2 = Melody::Scale(s(56, 59), Factor(r(1, 2)), &to_it2);
@@ -95,9 +104,9 @@ fn mutual() {
     let at = [b, third_at2, half_it2];
     let at = Melody::Sequence(&at);
 
-    let expected = HashMap::from([(Name("it"), &it), (Name("at"), &at)]);
+    let expected = HashMap::from([(name("it"), &it), (name("at"), &at)]);
 
-    check_ok(expected, source);
+    check_ok(names, expected, source);
 }
 
 #[test]
@@ -105,10 +114,13 @@ fn some_comments() {
     let source = "-- beep--=\nit = <>--";
     let s = span_in(source);
 
-    let a = Melody::Pause(s(16, 18));
-    let expected = HashMap::from([(Name("it"), &a)]);
+    let mut names = Names::new();
+    let mut name = |name| names.make(name);
 
-    check_ok(expected, source);
+    let a = Melody::Pause(s(16, 18));
+    let expected = HashMap::from([(name("it"), &a)]);
+
+    check_ok(names, expected, source);
 }
 
 #[test]
@@ -116,12 +128,15 @@ fn sharps() {
     let source = r#"it = (a#)##"#;
     let s = span_in(source);
 
+    let mut names = Names::new();
+    let mut name = |name| names.make(name);
+
     let a = Melody::Note(s(6, 7), 'a');
     let inner = Melody::Sharp(s(7, 8), 1, &a);
     let outer = Melody::Sharp(s(9, 11), 2, &inner);
-    let expected = HashMap::from([(Name("it"), &outer)]);
+    let expected = HashMap::from([(name("it"), &outer)]);
 
-    check_ok(expected, source);
+    check_ok(names, expected, source);
 }
 
 #[test]
@@ -129,12 +144,15 @@ fn offsets() {
     let source = r#"it = (a+1)-1"#;
     let s = span_in(source);
 
+    let mut names = Names::new();
+    let mut name = |name| names.make(name);
+
     let a = Melody::Note(s(6, 7), 'a');
     let inner = Melody::Offset(s(7, 9), 1, &a);
     let outer = Melody::Offset(s(10, 12), -1, &inner);
-    let expected = HashMap::from([(Name("it"), &outer)]);
+    let expected = HashMap::from([(name("it"), &outer)]);
 
-    check_ok(expected, source);
+    check_ok(names, expected, source);
 }
 
 #[test]

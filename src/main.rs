@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use error::SourceId;
 use mm_eval::eval::Evaluator;
+use mm_eval::Names;
 use mm_media::midi::Pitch;
 use mm_media::{midi, svg};
 use notify_debouncer_mini::notify::RecursiveMode;
@@ -52,14 +53,16 @@ fn compile(
     let sources = file::get_sources(paths)?;
     let sources = sources.cache();
 
+    let mut names = Names::new();
+
     for (id, path, source) in sources.iter() {
-        let mut program = match mm_eval::compile(&implicits, &explicits, id, source) {
+        let mut program = match mm_eval::compile(&mut names, &implicits, &explicits, id, source) {
             Ok(program) => program,
             Err(es) => {
                 let mut writer = stderr().lock();
 
                 for e in es {
-                    sources.report(&mut writer, e).unwrap();
+                    sources.report(&mut writer, &names, e).unwrap();
                 }
 
                 return Ok(());

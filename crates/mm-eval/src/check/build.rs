@@ -5,7 +5,7 @@ use crate::implicit::Melody;
 use crate::note::Note;
 use crate::{Factor, Length};
 
-impl<N: Note, Id> Checker<'_, '_, N, Id> {
+impl<N: Note, Id> Checker<'_, N, Id> {
     pub fn build_equation(&self, melody: &Melody<N, Id>) -> Vec<Sum> {
         self.build(&Factor::one(), melody)
     }

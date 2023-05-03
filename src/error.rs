@@ -3,7 +3,7 @@ use std::io;
 use std::path::Path;
 
 use ariadne::{Cache, Label, Report, ReportKind, Source};
-use mm_eval::{check, parse, Error};
+use mm_eval::{check, parse, Error, Names};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SourceId(usize);
@@ -46,8 +46,8 @@ impl<'src> SourceCache<'src> {
             .map(|(index, (path, source))| (SourceId(index), Path::new(path), source.as_str()))
     }
 
-    pub fn report(&self, w: impl io::Write, e: Error<'src, SourceId>) -> io::Result<()> {
-        make_report(e).write(self, w)
+    pub fn report(&self, w: impl io::Write, names: &Names, e: Error<SourceId>) -> io::Result<()> {
+        make_report(names, e).write(self, w)
     }
 
     fn new(sources: &'src Sources) -> Self {
@@ -109,7 +109,7 @@ impl ariadne::Span for Span {
     }
 }
 
-fn make_report(e: Error<SourceId>) -> Report<Span> {
+fn make_report(names: &Names, e: Error<SourceId>) -> Report<Span> {
     match e {
         Error::Parse(parse::Error::ExpectedEqual(at)) => {
             Report::build(ReportKind::Error, at.source, at.start)
@@ -173,7 +173,7 @@ fn make_report(e: Error<SourceId>) -> Report<Span> {
 
         Error::Check(check::Error::UnknownName(at, name)) => {
             Report::build(ReportKind::Error, at.source, at.start)
-                .with_message(format!("Unknown name '{name}'"))
+                .with_message(format!("Unknown name '{}'", names.get(&name)))
                 .with_label(Label::new(Span(at)))
                 .finish()
         }

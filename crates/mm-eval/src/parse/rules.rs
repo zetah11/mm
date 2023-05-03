@@ -9,12 +9,19 @@ use crate::note::Note;
 use crate::span::Span;
 use crate::{Factor, Name};
 
-impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
-    pub(super) fn parse_program(&mut self) -> Program<'a, 'src, N, Id> {
+struct ParsedDefinition<'a, N, Id> {
+    name: Name,
+    name_span: Span<Id>,
+    is_public: bool,
+    body: &'a Melody<'a, N, Id>,
+}
+
+impl<'a, N: Note, Id: Clone + Eq> Parser<'a, '_, '_, N, Id> {
+    pub(super) fn parse_program(&mut self) -> Program<'a, N, Id> {
         let mut program = Program::new(self.span.clone());
 
         while self.next.is_some() {
-            let Some((name, name_span, is_public, body)) = self.definition() else { continue; };
+            let Some(ParsedDefinition { name, name_span, is_public, body }) = self.definition() else { continue; };
 
             if let Some(previous) = program.spans.get(&name).cloned() {
                 self.errors.push(Error::Redefinition {
@@ -63,14 +70,14 @@ impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
         (Factor(BigRational::new(first, second)), span)
     }
 
-    fn definition(&mut self) -> Option<(Name<'src>, Span<Id>, bool, &'a Melody<'a, 'src, N, Id>)> {
+    fn definition(&mut self) -> Option<ParsedDefinition<'a, N, Id>> {
         let (name, name_span) = match self.advance() {
             Some((Token::Name(name), span)) => {
                 if N::parse(name).is_some() {
                     self.errors.push(Error::ExpectedName(span.clone()));
                 }
 
-                (Name(name), span)
+                (self.names.make(name), span)
             }
 
             _ => {
@@ -88,14 +95,19 @@ impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
 
         let body = self.expression();
         let body = self.arena.alloc(body);
-        Some((name, name_span, is_public, body))
+        Some(ParsedDefinition {
+            name,
+            name_span,
+            is_public,
+            body,
+        })
     }
 
-    fn expression(&mut self) -> Melody<'a, 'src, N, Id> {
+    fn expression(&mut self) -> Melody<'a, N, Id> {
         self.stack()
     }
 
-    fn stack(&mut self) -> Melody<'a, 'src, N, Id> {
+    fn stack(&mut self) -> Melody<'a, N, Id> {
         let mut melodies = vec![self.sequence()];
 
         while self.consume(Token::Pipe).is_some() {
@@ -110,7 +122,7 @@ impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
         }
     }
 
-    fn sequence(&mut self) -> Melody<'a, 'src, N, Id> {
+    fn sequence(&mut self) -> Melody<'a, N, Id> {
         let mut melodies = vec![self.scale()];
 
         while self.consume(Token::Comma).is_some() {
@@ -125,7 +137,7 @@ impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
         }
     }
 
-    fn scale(&mut self) -> Melody<'a, 'src, N, Id> {
+    fn scale(&mut self) -> Melody<'a, N, Id> {
         let mut melody = if self.peek(Token::Number("")).is_some() {
             let (by, factor_span) = self.parse_factor();
             let melody = self.simple();
@@ -160,11 +172,11 @@ impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
         }
     }
 
-    fn simple(&mut self) -> Melody<'a, 'src, N, Id> {
+    fn simple(&mut self) -> Melody<'a, N, Id> {
         let melody = match self.advance() {
             Some((Token::Name(n), span)) => match N::parse(n) {
                 Some(note) => Melody::Note(span, note),
-                None => Melody::Name(span, Name(n)),
+                None => Melody::Name(span, self.names.make(n)),
             },
 
             Some((Token::Pause, span)) => Melody::Pause(span),

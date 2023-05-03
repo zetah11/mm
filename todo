@@ -24,4 +24,4 @@ Errors
 
 Performance
 [ ] don't clone the rationals everywhere
-[ ] intern names
+[x] intern names

@@ -14,18 +14,15 @@ use crate::{Factor, Length, Name, Time};
 
 pub const DEFAULT_MAX_DEPTH: usize = 10;
 
-pub struct Evaluator<'a, 'src, N, Id> {
-    program: HashMap<Name<'src>, &'a Melody<'a, 'src, N, Id>>,
-    entry: Name<'src>,
+pub struct Evaluator<'a, N, Id> {
+    program: HashMap<Name, &'a Melody<'a, N, Id>>,
+    entry: Name,
     max_depth: usize,
     min_length: Length,
 }
 
-impl<'a, 'src, N: Note, Id: Clone> Evaluator<'a, 'src, N, Id> {
-    pub fn new(
-        program: HashMap<Name<'src>, &'a Melody<'a, 'src, N, Id>>,
-        entry: Name<'src>,
-    ) -> Self {
+impl<'a, N: Note, Id: Clone> Evaluator<'a, N, Id> {
+    pub fn new(program: HashMap<Name, &'a Melody<'a, N, Id>>, entry: Name) -> Self {
         Self {
             program,
             entry,
@@ -63,8 +60,8 @@ impl<'a, 'src, N: Note, Id: Clone> Evaluator<'a, 'src, N, Id> {
 }
 
 #[derive(Debug)]
-struct NextMelody<'a, 'src, N, Id> {
-    melody: &'a Melody<'a, 'src, N, Id>,
+struct NextMelody<'a, N, Id> {
+    melody: &'a Melody<'a, N, Id>,
     depth: usize,
     start: Time,
 
@@ -73,23 +70,23 @@ struct NextMelody<'a, 'src, N, Id> {
     sharps: usize,
 }
 
-impl<N, Id> Eq for NextMelody<'_, '_, N, Id> {
+impl<N, Id> Eq for NextMelody<'_, N, Id> {
     fn assert_receiver_is_total_eq(&self) {}
 }
 
-impl<N, Id> PartialEq for NextMelody<'_, '_, N, Id> {
+impl<N, Id> PartialEq for NextMelody<'_, N, Id> {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other).is_eq()
     }
 }
 
-impl<N, Id> PartialOrd for NextMelody<'_, '_, N, Id> {
+impl<N, Id> PartialOrd for NextMelody<'_, N, Id> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<N, Id> Ord for NextMelody<'_, '_, N, Id> {
+impl<N, Id> Ord for NextMelody<'_, N, Id> {
     fn cmp(&self, other: &Self) -> Ordering {
         let Time(this) = &self.start;
         let Time(other) = &other.start;
@@ -97,12 +94,12 @@ impl<N, Id> Ord for NextMelody<'_, '_, N, Id> {
     }
 }
 
-struct Iter<'a, 'src, N, Id> {
-    evaluator: &'a Evaluator<'a, 'src, N, Id>,
-    queue: BinaryHeap<NextMelody<'a, 'src, N, Id>>,
+struct Iter<'a, N, Id> {
+    evaluator: &'a Evaluator<'a, N, Id>,
+    queue: BinaryHeap<NextMelody<'a, N, Id>>,
 }
 
-impl<'a, 'src, N: Note, Id: Clone> Iterator for Iter<'a, 'src, N, Id> {
+impl<'a, N: Note, Id: Clone> Iterator for Iter<'a, N, Id> {
     type Item = (N, Span<Id>, Time, Length);
 
     fn next(&mut self) -> Option<Self::Item> {

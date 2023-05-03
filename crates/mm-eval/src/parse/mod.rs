@@ -10,7 +10,7 @@ use typed_arena::Arena;
 use crate::implicit::{Melody, Program};
 use crate::note::Note;
 use crate::span::Span;
-use crate::Length;
+use crate::{Length, Names};
 
 use self::lex::Token;
 
@@ -27,9 +27,10 @@ pub enum Error<Id> {
     UnclosedParen { opener: Span<Id>, at: Span<Id> },
 }
 
-pub struct Parser<'a, 'src, N, Id> {
+pub struct Parser<'a, 'names, 'src, N, Id> {
     name: Id,
-    arena: &'a Arena<Melody<'a, 'src, N, Id>>,
+    names: &'names mut Names,
+    arena: &'a Arena<Melody<'a, N, Id>>,
     lexer: SpannedIter<'src, Token<'src>>,
     next: Option<(Token<'src>, Span<Id>)>,
     span: Span<Id>,
@@ -37,13 +38,14 @@ pub struct Parser<'a, 'src, N, Id> {
     errors: Vec<Error<Id>>,
 }
 
-impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
+impl<'a, 'names, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'names, 'src, N, Id> {
     pub fn parse(
-        arena: &'a Arena<Melody<'a, 'src, N, Id>>,
+        names: &'names mut Names,
+        arena: &'a Arena<Melody<'a, N, Id>>,
         name: Id,
         source: &'src str,
-    ) -> Result<Program<'a, 'src, N, Id>, Vec<Error<Id>>> {
-        let mut parser = Self::new(arena, name, source);
+    ) -> Result<Program<'a, N, Id>, Vec<Error<Id>>> {
+        let mut parser = Self::new(names, arena, name, source);
         parser.advance();
         let parsed = parser.parse_program();
         if parser.errors.is_empty() {
@@ -55,7 +57,8 @@ impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
 
     pub fn parse_length(name: Id, source: &'src str) -> Result<Length, Vec<Error<Id>>> {
         let arena = Arena::new();
-        let mut parser: Parser<char, _> = Parser::new(&arena, name, source);
+        let mut names = Names::new();
+        let mut parser: Parser<char, _> = Parser::new(&mut names, &arena, name, source);
         parser.advance();
         let (parsed, _) = parser.parse_factor();
         if parser.errors.is_empty() {
@@ -65,9 +68,15 @@ impl<'a, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'src, N, Id> {
         }
     }
 
-    fn new(arena: &'a Arena<Melody<'a, 'src, N, Id>>, name: Id, source: &'src str) -> Self {
+    fn new(
+        names: &'names mut Names,
+        arena: &'a Arena<Melody<'a, N, Id>>,
+        name: Id,
+        source: &'src str,
+    ) -> Self {
         Self {
             arena,
+            names,
             lexer: Token::lexer(source).spanned(),
             next: None,
             span: Span::new(name.clone(), 0..0),

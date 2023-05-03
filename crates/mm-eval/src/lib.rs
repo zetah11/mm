@@ -2,11 +2,13 @@ pub mod check;
 pub mod eval;
 pub mod implicit;
 pub mod melody;
+pub mod names;
 pub mod note;
 pub mod parse;
 pub mod span;
 
 pub use crate::compile::compile;
+pub use crate::names::{Name, Names};
 pub use crate::time::{Factor, Length, Time};
 
 mod compile;
@@ -15,22 +17,19 @@ mod time;
 mod dependency;
 mod topology;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Name<'src>(pub &'src str);
-
 #[derive(Debug)]
-pub enum Error<'src, Id> {
+pub enum Error<Id> {
     Parse(parse::Error<Id>),
-    Check(check::Error<'src, Id>),
+    Check(check::Error<Id>),
 }
 
-impl<'src, Id> From<check::Error<'src, Id>> for Error<'src, Id> {
-    fn from(value: check::Error<'src, Id>) -> Self {
+impl<Id> From<check::Error<Id>> for Error<Id> {
+    fn from(value: check::Error<Id>) -> Self {
         Self::Check(value)
     }
 }
 
-impl<Id> From<parse::Error<Id>> for Error<'_, Id> {
+impl<Id> From<parse::Error<Id>> for Error<Id> {
     fn from(value: parse::Error<Id>) -> Self {
         Self::Parse(value)
     }

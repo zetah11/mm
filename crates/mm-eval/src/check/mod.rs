@@ -19,16 +19,16 @@ use crate::{implicit, melody, topology, Length, Name};
 use self::equation::{Equation, Variable};
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum Error<'src, Id> {
+pub enum Error<Id> {
     NoPublicNames(Span<Id>),
-    UnknownName(Span<Id>, &'src str),
+    UnknownName(Span<Id>, Name),
     UnboundedNotLast(Span<Id>),
 }
 
-pub fn check<'a, 'src, N: Note, Id: Clone + Eq>(
-    arena: &'a Arena<melody::Melody<'a, 'src, N, Id>>,
-    program: implicit::Program<'_, 'src, N, Id>,
-) -> Result<melody::Program<'a, 'src, N, Id>, Vec<Error<'src, Id>>> {
+pub fn check<'a, N: Note, Id: Clone + Eq>(
+    arena: &'a Arena<melody::Melody<'a, N, Id>>,
+    program: implicit::Program<'_, N, Id>,
+) -> Result<melody::Program<'a, N, Id>, Vec<Error<Id>>> {
     let graph = dependencies(&program.defs)?;
     let mut checker = Checker::new(arena);
 
@@ -51,18 +51,18 @@ pub fn check<'a, 'src, N: Note, Id: Clone + Eq>(
     }
 }
 
-struct Checker<'a, 'src, N, Id> {
-    arena: &'a Arena<melody::Melody<'a, 'src, N, Id>>,
-    defs: HashMap<Name<'src>, &'a melody::Melody<'a, 'src, N, Id>>,
-    context: HashMap<Name<'src>, Variable>,
+struct Checker<'a, N, Id> {
+    arena: &'a Arena<melody::Melody<'a, N, Id>>,
+    defs: HashMap<Name, &'a melody::Melody<'a, N, Id>>,
+    context: HashMap<Name, Variable>,
     lengths: HashMap<Variable, Length>,
     counter: usize,
 
-    errors: Vec<Error<'src, Id>>,
+    errors: Vec<Error<Id>>,
 }
 
-impl<'a, 'src, N: Note, Id: Clone + Eq> Checker<'a, 'src, N, Id> {
-    pub fn new(arena: &'a Arena<melody::Melody<'a, 'src, N, Id>>) -> Self {
+impl<'a, N: Note, Id: Clone + Eq> Checker<'a, N, Id> {
+    pub fn new(arena: &'a Arena<melody::Melody<'a, N, Id>>) -> Self {
         Self {
             arena,
             defs: HashMap::new(),
@@ -76,8 +76,8 @@ impl<'a, 'src, N: Note, Id: Clone + Eq> Checker<'a, 'src, N, Id> {
 
     pub fn check_component(
         &mut self,
-        program: &HashMap<Name<'src>, &implicit::Melody<'_, 'src, N, Id>>,
-        names: HashSet<&Name<'src>>,
+        program: &HashMap<Name, &implicit::Melody<'_, N, Id>>,
+        names: HashSet<&Name>,
     ) {
         for name in names.iter() {
             let var = self.fresh();

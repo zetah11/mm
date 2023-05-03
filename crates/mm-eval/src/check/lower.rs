@@ -5,12 +5,12 @@ use crate::{implicit, melody, Length, Name};
 
 use super::{Checker, Error};
 
-impl<'a, 'src, N: Note, Id: Clone + Eq> Checker<'a, 'src, N, Id> {
+impl<'a, N: Note, Id: Clone + Eq> Checker<'a, N, Id> {
     pub fn lower(
         &mut self,
-        component: &HashSet<&Name<'src>>,
-        melody: &implicit::Melody<'_, 'src, N, Id>,
-    ) -> melody::Melody<'a, 'src, N, Id> {
+        component: &HashSet<&Name>,
+        melody: &implicit::Melody<'_, N, Id>,
+    ) -> melody::Melody<'a, N, Id> {
         let span = melody.span();
 
         let (node, length) = match melody {
