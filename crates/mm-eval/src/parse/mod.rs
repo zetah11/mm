@@ -5,12 +5,11 @@ mod rules;
 mod tests;
 
 use logos::{Logos, SpannedIter};
-use typed_arena::Arena;
 
 use crate::implicit::{Melody, Program};
 use crate::note::Note;
 use crate::span::Span;
-use crate::{Length, Names};
+use crate::{Allocator, Heap, Length, Names};
 
 use self::lex::Token;
 
@@ -27,25 +26,31 @@ pub enum Error<Id> {
     UnclosedParen { opener: Span<Id>, at: Span<Id> },
 }
 
-pub struct Parser<'a, 'names, 'src, N, Id> {
+pub struct Parser<'a, 'names, 'src, N, Id, A: Allocator<Melody<N, Id, A>>> {
     name: Id,
+    alloc: &'a mut A,
     names: &'names mut Names,
-    arena: &'a Arena<Melody<'a, N, Id>>,
     lexer: SpannedIter<'src, Token<'src>>,
     next: Option<(Token<'src>, Span<Id>)>,
     span: Span<Id>,
 
     errors: Vec<Error<Id>>,
+    _n: std::marker::PhantomData<N>,
 }
 
-impl<'a, 'names, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'names, 'src, N, Id> {
+impl<'a, 'names, 'src, N, Id, A> Parser<'a, 'names, 'src, N, Id, A>
+where
+    N: Note,
+    Id: Clone + Eq,
+    A: Allocator<Melody<N, Id, A>>,
+{
     pub fn parse(
+        alloc: &'a mut A,
         names: &'names mut Names,
-        arena: &'a Arena<Melody<'a, N, Id>>,
         name: Id,
         source: &'src str,
-    ) -> Result<Program<'a, N, Id>, Vec<Error<Id>>> {
-        let mut parser = Self::new(names, arena, name, source);
+    ) -> Result<Program<N, Id, A>, Vec<Error<Id>>> {
+        let mut parser = Self::new(alloc, names, name, source);
         parser.advance();
         let parsed = parser.parse_program();
         if parser.errors.is_empty() {
@@ -56,9 +61,9 @@ impl<'a, 'names, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'names, 'src, N, Id> 
     }
 
     pub fn parse_length(name: Id, source: &'src str) -> Result<Length, Vec<Error<Id>>> {
-        let arena = Arena::new();
+        let mut heap = Heap;
         let mut names = Names::new();
-        let mut parser: Parser<char, _> = Parser::new(&mut names, &arena, name, source);
+        let mut parser: Parser<char, _, Heap> = Parser::new(&mut heap, &mut names, name, source);
         parser.advance();
         let (parsed, _) = parser.parse_factor();
         if parser.errors.is_empty() {
@@ -68,20 +73,17 @@ impl<'a, 'names, 'src, N: Note, Id: Clone + Eq> Parser<'a, 'names, 'src, N, Id> 
         }
     }
 
-    fn new(
-        names: &'names mut Names,
-        arena: &'a Arena<Melody<'a, N, Id>>,
-        name: Id,
-        source: &'src str,
-    ) -> Self {
+    fn new(alloc: &'a mut A, names: &'names mut Names, name: Id, source: &'src str) -> Self {
         Self {
-            arena,
             names,
+            alloc,
             lexer: Token::lexer(source).spanned(),
             next: None,
             span: Span::new(name.clone(), 0..0),
             errors: Vec::new(),
             name,
+
+            _n: std::marker::PhantomData,
         }
     }
 

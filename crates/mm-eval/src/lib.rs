@@ -7,10 +7,12 @@ pub mod note;
 pub mod parse;
 pub mod span;
 
+pub use crate::alloc::{Allocator, Arena, Heap};
 pub use crate::compile::compile;
 pub use crate::names::{Name, Names};
 pub use crate::time::{Factor, Length, Time};
 
+mod alloc;
 mod compile;
 mod time;
 

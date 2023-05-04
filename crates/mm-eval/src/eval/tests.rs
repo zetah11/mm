@@ -6,7 +6,7 @@ use num_rational::BigRational;
 use crate::melody::{Melody, Node};
 use crate::names::names;
 use crate::span::{span, Span};
-use crate::{Factor, Length, Name, Time};
+use crate::{Allocator, Factor, Heap, Length, Name, Time};
 
 use super::Evaluator;
 
@@ -16,10 +16,10 @@ fn r(n: i128, d: i128) -> BigRational {
 
 fn check(
     expected: Vec<(char, Span<&str>, Time, Length)>,
-    program: HashMap<Name, &Melody<char, &str>>,
+    program: HashMap<Name, <Heap as Allocator<Melody<char, &str, Heap>>>::Holder>,
     entry: Name,
 ) {
-    let eval = Evaluator::new(program, entry);
+    let eval: Evaluator<_, _, Heap> = Evaluator::new(program, entry);
     let actual: Vec<_> = eval.iter().collect();
     assert_eq!(expected, actual);
 }
@@ -47,14 +47,13 @@ fn simple_sequence() {
         span,
     };
 
-    let melody = [a, b, c];
     let melody = Melody {
-        node: Node::Sequence(&melody),
+        node: Node::Sequence(vec![a, b, c]),
         length: Length::Bounded(r(3, 1)),
         span,
     };
 
-    let program = HashMap::from([(name("it"), &melody)]);
+    let program = HashMap::from([(name("it"), Box::new(melody))]);
 
     let expected = vec![
         ('a', span, Time(r(0, 1)), Length::one()),
@@ -87,14 +86,13 @@ fn simple_stack() {
         span,
     };
 
-    let melody = [a, b, c];
     let melody = Melody {
-        node: Node::Stack(&melody),
+        node: Node::Stack(vec![a, b, c]),
         length: Length::one(),
         span,
     };
 
-    let program = HashMap::from([(name("it"), &melody)]);
+    let program = HashMap::from([(name("it"), Box::new(melody))]);
 
     let expected = vec![
         ('a', span, Time::zero(), Length::one()),
@@ -121,7 +119,13 @@ fn unending_stack() {
         span,
     };
 
-    let to_bot = Melody {
+    let to_bot1 = Melody {
+        node: Node::Name(name("bot")),
+        length: Length::Unbounded,
+        span,
+    };
+
+    let to_bot2 = Melody {
         node: Node::Name(name("bot")),
         length: Length::Unbounded,
         span,
@@ -139,40 +143,43 @@ fn unending_stack() {
         span,
     };
 
-    let to_top = Melody {
+    let to_top1 = Melody {
         node: Node::Name(name("top")),
         length: Length::Unbounded,
         span,
     };
 
-    let bot = [a, b, to_bot.clone()];
+    let to_top2 = Melody {
+        node: Node::Name(name("top")),
+        length: Length::Unbounded,
+        span,
+    };
+
     let bot = Melody {
-        node: Node::Sequence(&bot),
+        node: Node::Sequence(vec![a, b, to_bot1]),
         length: Length::Unbounded,
         span,
     };
 
-    let top = [c, d, to_top.clone()];
     let top = Melody {
-        node: Node::Sequence(&top),
+        node: Node::Sequence(vec![c, d, to_top1]),
         length: Length::Unbounded,
         span,
     };
 
-    let stack = [to_bot, to_top];
     let stack = Melody {
-        node: Node::Stack(&stack),
+        node: Node::Stack(vec![to_bot2, to_top2]),
         length: Length::Unbounded,
         span,
     };
 
     let program = HashMap::from([
-        (name("bot"), &bot),
-        (name("top"), &top),
-        (name("stack"), &stack),
+        (name("bot"), Box::new(bot)),
+        (name("top"), Box::new(top)),
+        (name("stack"), Box::new(stack)),
     ]);
 
-    let evaluator = Evaluator::new(program, name("stack")).with_max_depth(5);
+    let evaluator: Evaluator<_, _, Heap> = Evaluator::new(program, name("stack")).with_max_depth(5);
 
     let expected = vec![
         ('a', span, Time(r(0, 1)), Length::one()),
@@ -212,21 +219,21 @@ fn fractal() {
     };
 
     let scale = Melody {
-        node: Node::Scale(Factor(r(1, 2)), &to_fractal),
+        node: Node::Scale(Factor(r(1, 2)), Box::new(to_fractal)),
         length: Length::one(),
         span,
     };
 
-    let melody = [a, scale];
     let melody = Melody {
-        node: Node::Sequence(&melody),
+        node: Node::Sequence(vec![a, scale]),
         length: Length::Bounded(r(2, 1)),
         span,
     };
 
-    let program = HashMap::from([(name("fractal"), &melody)]);
+    let program = HashMap::from([(name("fractal"), Box::new(melody))]);
 
-    let evaluator = Evaluator::new(program, name("fractal")).with_max_depth(5);
+    let evaluator: Evaluator<_, _, Heap> =
+        Evaluator::new(program, name("fractal")).with_max_depth(5);
 
     let expected = vec![
         ('a', span, Time(r(0, 1)), Length::Bounded(r(1, 1))),

@@ -9,12 +9,10 @@ mod tests;
 
 use std::collections::{HashMap, HashSet};
 
-use typed_arena::Arena;
-
 use crate::dependency::dependencies;
 use crate::note::Note;
 use crate::span::Span;
-use crate::{implicit, melody, topology, Length, Name};
+use crate::{implicit, melody, topology, Allocator, Length, Name};
 
 use self::equation::{Equation, Variable};
 
@@ -25,12 +23,18 @@ pub enum Error<Id> {
     UnboundedNotLast(Span<Id>),
 }
 
-pub fn check<'a, N: Note, Id: Clone + Eq>(
-    arena: &'a Arena<melody::Melody<'a, N, Id>>,
-    program: implicit::Program<'_, N, Id>,
-) -> Result<melody::Program<'a, N, Id>, Vec<Error<Id>>> {
-    let graph = dependencies(&program.defs)?;
-    let mut checker = Checker::new(arena);
+pub fn check<N, Id, A>(
+    alloc: &mut A,
+    program: implicit::Program<N, Id, A>,
+) -> Result<melody::Program<N, Id, A>, Vec<Error<Id>>>
+where
+    N: Note,
+    Id: Clone + Eq,
+    A: Allocator<implicit::Melody<N, Id, A>>,
+    A: Allocator<melody::Melody<N, Id, A>>,
+{
+    let graph = dependencies::<N, Id, A>(&program.defs)?;
+    let mut checker = Checker::new(alloc);
 
     for names in topology::order(&graph) {
         checker.check_component(&program.defs, names);
@@ -51,9 +55,9 @@ pub fn check<'a, N: Note, Id: Clone + Eq>(
     }
 }
 
-struct Checker<'a, N, Id> {
-    arena: &'a Arena<melody::Melody<'a, N, Id>>,
-    defs: HashMap<Name, &'a melody::Melody<'a, N, Id>>,
+struct Checker<'a, N, Id, A: Allocator<melody::Melody<N, Id, A>>> {
+    alloc: &'a mut A,
+    defs: HashMap<Name, A::Holder>,
     context: HashMap<Name, Variable>,
     lengths: HashMap<Variable, Length>,
     counter: usize,
@@ -61,10 +65,16 @@ struct Checker<'a, N, Id> {
     errors: Vec<Error<Id>>,
 }
 
-impl<'a, N: Note, Id: Clone + Eq> Checker<'a, N, Id> {
-    pub fn new(arena: &'a Arena<melody::Melody<'a, N, Id>>) -> Self {
+impl<'a, N, Id, A> Checker<'a, N, Id, A>
+where
+    N: Note,
+    Id: Clone + Eq,
+    A: Allocator<implicit::Melody<N, Id, A>>,
+    A: Allocator<melody::Melody<N, Id, A>>,
+{
+    pub fn new(alloc: &'a mut A) -> Self {
         Self {
-            arena,
+            alloc,
             defs: HashMap::new(),
             context: HashMap::new(),
             lengths: HashMap::new(),
@@ -76,7 +86,7 @@ impl<'a, N: Note, Id: Clone + Eq> Checker<'a, N, Id> {
 
     pub fn check_component(
         &mut self,
-        program: &HashMap<Name, &implicit::Melody<'_, N, Id>>,
+        program: &HashMap<Name, <A as Allocator<implicit::Melody<N, Id, A>>>::Holder>,
         names: HashSet<&Name>,
     ) {
         for name in names.iter() {
@@ -95,7 +105,7 @@ impl<'a, N: Note, Id: Clone + Eq> Checker<'a, N, Id> {
                 continue;
             };
 
-            let sums = self.build_equation(melody);
+            let sums = self.build_equation(A::as_ref(melody));
 
             equations.push(Equation { var, sums });
         }
@@ -105,8 +115,8 @@ impl<'a, N: Note, Id: Clone + Eq> Checker<'a, N, Id> {
         for name in names.iter() {
             let Some(melody) = program.get(name) else { continue; };
 
-            let melody = self.lower(&names, melody);
-            let melody = self.arena.alloc(melody);
+            let melody = self.lower(&names, A::as_ref(melody));
+            let melody = self.alloc.pack(melody);
             let prev = self.defs.insert(**name, melody);
             debug_assert!(prev.is_none());
         }

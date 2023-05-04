@@ -1,4 +1,4 @@
-use crate::{Factor, Length};
+use crate::{melody, Allocator, Factor, Length};
 
 use super::Checker;
 
@@ -23,7 +23,7 @@ pub enum Term {
     Variable(Factor, Variable),
 }
 
-impl<N, Id> Checker<'_, N, Id> {
+impl<N, Id, A: Allocator<melody::Melody<N, Id, A>>> Checker<'_, N, Id, A> {
     /// Create a fresh and unique length variable.
     pub fn fresh(&mut self) -> Variable {
         let var = Variable(self.counter);

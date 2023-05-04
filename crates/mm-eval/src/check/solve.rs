@@ -4,7 +4,7 @@ use itertools::Itertools;
 use num_bigint::BigInt;
 use num_rational::BigRational;
 
-use crate::Length;
+use crate::{melody, Allocator, Length};
 
 use super::equation::{Equation, Term, Variable};
 use super::matrix::{solve, Row, System};
@@ -15,7 +15,7 @@ enum Solution {
     Unbounded(Vec<Variable>),
 }
 
-impl<N, Id> Checker<'_, N, Id> {
+impl<N, Id, A: Allocator<melody::Melody<N, Id, A>>> Checker<'_, N, Id, A> {
     pub fn solve(&mut self, equations: Vec<Equation>) {
         match self.solve_equations(equations) {
             Solution::Solved(lengths) => {

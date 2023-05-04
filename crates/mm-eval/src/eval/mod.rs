@@ -10,19 +10,24 @@ use num_rational::BigRational;
 use crate::melody::{Melody, Node};
 use crate::note::Note;
 use crate::span::Span;
-use crate::{Factor, Length, Name, Time};
+use crate::{Allocator, Factor, Length, Name, Time};
 
 pub const DEFAULT_MAX_DEPTH: usize = 10;
 
-pub struct Evaluator<'a, N, Id> {
-    program: HashMap<Name, &'a Melody<'a, N, Id>>,
+pub struct Evaluator<N, Id, A: Allocator<Melody<N, Id, A>>> {
+    program: HashMap<Name, A::Holder>,
     entry: Name,
     max_depth: usize,
     min_length: Length,
 }
 
-impl<'a, N: Note, Id: Clone> Evaluator<'a, N, Id> {
-    pub fn new(program: HashMap<Name, &'a Melody<'a, N, Id>>, entry: Name) -> Self {
+impl<N, Id, A> Evaluator<N, Id, A>
+where
+    N: Note,
+    Id: Clone,
+    A: Allocator<Melody<N, Id, A>>,
+{
+    pub fn new(program: HashMap<Name, A::Holder>, entry: Name) -> Self {
         Self {
             program,
             entry,
@@ -40,7 +45,8 @@ impl<'a, N: Note, Id: Clone> Evaluator<'a, N, Id> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (N, Span<Id>, Time, Length)> + '_ {
-        let melody = *self.program.get(&self.entry).expect("entry exists");
+        let melody = self.program.get(&self.entry).expect("entry exists");
+        let melody = A::as_ref(melody);
         let start = Time::zero();
         let factor = Factor::one();
 
@@ -59,9 +65,8 @@ impl<'a, N: Note, Id: Clone> Evaluator<'a, N, Id> {
     }
 }
 
-#[derive(Debug)]
-struct NextMelody<'a, N, Id> {
-    melody: &'a Melody<'a, N, Id>,
+struct NextMelody<'a, N, Id, A: Allocator<Melody<N, Id, A>>> {
+    melody: &'a Melody<N, Id, A>,
     depth: usize,
     start: Time,
 
@@ -70,23 +75,23 @@ struct NextMelody<'a, N, Id> {
     sharps: usize,
 }
 
-impl<N, Id> Eq for NextMelody<'_, N, Id> {
+impl<N, Id, A: Allocator<Melody<N, Id, A>>> Eq for NextMelody<'_, N, Id, A> {
     fn assert_receiver_is_total_eq(&self) {}
 }
 
-impl<N, Id> PartialEq for NextMelody<'_, N, Id> {
+impl<N, Id, A: Allocator<Melody<N, Id, A>>> PartialEq for NextMelody<'_, N, Id, A> {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other).is_eq()
     }
 }
 
-impl<N, Id> PartialOrd for NextMelody<'_, N, Id> {
+impl<N, Id, A: Allocator<Melody<N, Id, A>>> PartialOrd for NextMelody<'_, N, Id, A> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<N, Id> Ord for NextMelody<'_, N, Id> {
+impl<N, Id, A: Allocator<Melody<N, Id, A>>> Ord for NextMelody<'_, N, Id, A> {
     fn cmp(&self, other: &Self) -> Ordering {
         let Time(this) = &self.start;
         let Time(other) = &other.start;
@@ -94,12 +99,17 @@ impl<N, Id> Ord for NextMelody<'_, N, Id> {
     }
 }
 
-struct Iter<'a, N, Id> {
-    evaluator: &'a Evaluator<'a, N, Id>,
-    queue: BinaryHeap<NextMelody<'a, N, Id>>,
+struct Iter<'a, N, Id, A: Allocator<Melody<N, Id, A>>> {
+    evaluator: &'a Evaluator<N, Id, A>,
+    queue: BinaryHeap<NextMelody<'a, N, Id, A>>,
 }
 
-impl<'a, N: Note, Id: Clone> Iterator for Iter<'a, N, Id> {
+impl<'a, N, Id, A> Iterator for Iter<'a, N, Id, A>
+where
+    N: Note,
+    Id: Clone,
+    A: Allocator<Melody<N, Id, A>>,
+{
     type Item = (N, Span<Id>, Time, Length);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -109,27 +119,28 @@ impl<'a, N: Note, Id: Clone> Iterator for Iter<'a, N, Id> {
             let factor = next.factor;
             let offset = next.offset;
             let sharps = next.sharps;
-
-            let length = &next.melody.length * &factor;
+            let melody = next.melody;
+            let length = &melody.length * &factor;
 
             if depth >= self.evaluator.max_depth || length < self.evaluator.min_length {
                 continue;
             }
 
-            match &next.melody.node {
+            match &melody.node {
                 Node::Pause => {}
                 Node::Note(note) => {
                     let note = note.add_octave(offset).add_sharp(sharps);
-                    return Some((note, next.melody.span.clone(), start, length));
+                    return Some((note, melody.span.clone(), start, length));
                 }
 
                 Node::Recur(name) => {
-                    let melody = *self
+                    let melody = self
                         .evaluator
                         .program
                         .get(name)
                         .expect("all names are defined");
 
+                    let melody = A::as_ref(melody);
                     self.queue.push(NextMelody {
                         melody,
                         depth: depth + 1,
@@ -141,12 +152,13 @@ impl<'a, N: Note, Id: Clone> Iterator for Iter<'a, N, Id> {
                 }
 
                 Node::Name(name) => {
-                    let melody = *self
+                    let melody = self
                         .evaluator
                         .program
                         .get(name)
                         .expect("all names are defined");
 
+                    let melody = A::as_ref(melody);
                     self.queue.push(NextMelody {
                         melody,
                         depth,
@@ -159,6 +171,7 @@ impl<'a, N: Note, Id: Clone> Iterator for Iter<'a, N, Id> {
 
                 Node::Scale(scale, melody) => {
                     let factor = Factor(factor.0 * scale.0.clone());
+                    let melody = A::as_ref(melody);
                     self.queue.push(NextMelody {
                         melody,
                         depth,
@@ -171,6 +184,7 @@ impl<'a, N: Note, Id: Clone> Iterator for Iter<'a, N, Id> {
 
                 Node::Sharp(by, melody) => {
                     let sharps = sharps + *by;
+                    let melody = A::as_ref(melody);
                     self.queue.push(NextMelody {
                         melody,
                         depth,
@@ -183,6 +197,7 @@ impl<'a, N: Note, Id: Clone> Iterator for Iter<'a, N, Id> {
 
                 Node::Offset(by, melody) => {
                     let offset = offset + *by;
+                    let melody = A::as_ref(melody);
                     self.queue.push(NextMelody {
                         melody,
                         depth,
@@ -195,7 +210,7 @@ impl<'a, N: Note, Id: Clone> Iterator for Iter<'a, N, Id> {
 
                 Node::Sequence(melodies) => {
                     let mut start = start;
-                    for melody in *melodies {
+                    for melody in A::as_slice(melodies) {
                         let length = &melody.length;
                         self.queue.push(NextMelody {
                             melody,
@@ -215,7 +230,7 @@ impl<'a, N: Note, Id: Clone> Iterator for Iter<'a, N, Id> {
                 }
 
                 Node::Stack(melodies) => {
-                    for melody in *melodies {
+                    for melody in A::as_slice(melodies) {
                         self.queue.push(NextMelody {
                             melody,
                             depth,

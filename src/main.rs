@@ -7,12 +7,11 @@ use std::time::Duration;
 
 use error::SourceId;
 use mm_eval::eval::Evaluator;
-use mm_eval::Names;
+use mm_eval::{Arena, Names};
 use mm_media::midi::Pitch;
 use mm_media::{midi, svg};
 use notify_debouncer_mini::notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult};
-use typed_arena::Arena;
 
 const MAX_DEPTH: usize = 20;
 const MAX_NOTES: usize = 1000;
@@ -47,8 +46,7 @@ fn compile(
     args: &Args,
     paths: impl IntoIterator<Item = PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let implicits = Arena::new();
-    let explicits = Arena::new();
+    let mut alloc = &Arena::new();
 
     let sources = file::get_sources(paths)?;
     let sources = sources.cache();
@@ -56,7 +54,7 @@ fn compile(
     let mut names = Names::new();
 
     for (id, path, source) in sources.iter() {
-        let mut program = match mm_eval::compile(&mut names, &implicits, &explicits, id, source) {
+        let mut program = match mm_eval::compile(&mut alloc, &mut names, id, source) {
             Ok(program) => program,
             Err(es) => {
                 let mut writer = stderr().lock();
@@ -89,10 +87,10 @@ fn compile(
     Ok(())
 }
 
-fn write(
+fn write<'a>(
     kind: Kind,
     path: &Path,
-    eval: &Evaluator<Pitch, SourceId>,
+    eval: &Evaluator<Pitch, SourceId, &'a Arena<'a, Pitch, SourceId>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let out = path.with_extension(kind.extension());
     let notes = eval.iter().take(MAX_NOTES);

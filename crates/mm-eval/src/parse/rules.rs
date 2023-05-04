@@ -7,17 +7,22 @@ use super::{Error, Parser};
 use crate::implicit::{Melody, Program};
 use crate::note::Note;
 use crate::span::Span;
-use crate::{Factor, Name};
+use crate::{Allocator, Factor, Name};
 
-struct ParsedDefinition<'a, N, Id> {
+struct ParsedDefinition<N, Id, A: Allocator<Melody<N, Id, A>>> {
     name: Name,
     name_span: Span<Id>,
     is_public: bool,
-    body: &'a Melody<'a, N, Id>,
+    body: A::Holder,
 }
 
-impl<'a, N: Note, Id: Clone + Eq> Parser<'a, '_, '_, N, Id> {
-    pub(super) fn parse_program(&mut self) -> Program<'a, N, Id> {
+impl<N, Id, A> Parser<'_, '_, '_, N, Id, A>
+where
+    N: Note,
+    Id: Clone + Eq,
+    A: Allocator<Melody<N, Id, A>>,
+{
+    pub(super) fn parse_program(&mut self) -> Program<N, Id, A> {
         let mut program = Program::new(self.span.clone());
 
         while self.next.is_some() {
@@ -70,7 +75,7 @@ impl<'a, N: Note, Id: Clone + Eq> Parser<'a, '_, '_, N, Id> {
         (Factor(BigRational::new(first, second)), span)
     }
 
-    fn definition(&mut self) -> Option<ParsedDefinition<'a, N, Id>> {
+    fn definition(&mut self) -> Option<ParsedDefinition<N, Id, A>> {
         let (name, name_span) = match self.advance() {
             Some((Token::Name(name), span)) => {
                 if N::parse(name).is_some() {
@@ -94,7 +99,7 @@ impl<'a, N: Note, Id: Clone + Eq> Parser<'a, '_, '_, N, Id> {
         }
 
         let body = self.expression();
-        let body = self.arena.alloc(body);
+        let body = self.alloc.pack(body);
         Some(ParsedDefinition {
             name,
             name_span,
@@ -103,11 +108,11 @@ impl<'a, N: Note, Id: Clone + Eq> Parser<'a, '_, '_, N, Id> {
         })
     }
 
-    fn expression(&mut self) -> Melody<'a, N, Id> {
+    fn expression(&mut self) -> Melody<N, Id, A> {
         self.stack()
     }
 
-    fn stack(&mut self) -> Melody<'a, N, Id> {
+    fn stack(&mut self) -> Melody<N, Id, A> {
         let mut melodies = vec![self.sequence()];
 
         while self.consume(Token::Pipe).is_some() {
@@ -117,12 +122,12 @@ impl<'a, N: Note, Id: Clone + Eq> Parser<'a, '_, '_, N, Id> {
         if melodies.len() == 1 {
             melodies.remove(0)
         } else {
-            let melodies = self.arena.alloc_extend(melodies);
+            let melodies = self.alloc.pack_many(melodies);
             Melody::Stack(melodies)
         }
     }
 
-    fn sequence(&mut self) -> Melody<'a, N, Id> {
+    fn sequence(&mut self) -> Melody<N, Id, A> {
         let mut melodies = vec![self.scale()];
 
         while self.consume(Token::Comma).is_some() {
@@ -132,16 +137,16 @@ impl<'a, N: Note, Id: Clone + Eq> Parser<'a, '_, '_, N, Id> {
         if melodies.len() == 1 {
             melodies.remove(0)
         } else {
-            let melodies = self.arena.alloc_extend(melodies);
+            let melodies = self.alloc.pack_many(melodies);
             Melody::Sequence(melodies)
         }
     }
 
-    fn scale(&mut self) -> Melody<'a, N, Id> {
+    fn scale(&mut self) -> Melody<N, Id, A> {
         let mut melody = if self.peek(Token::Number("")).is_some() {
             let (by, factor_span) = self.parse_factor();
             let melody = self.simple();
-            let melody = self.arena.alloc(melody);
+            let melody = self.alloc.pack(melody);
             Melody::Scale(factor_span, by, melody)
         } else {
             self.simple()
@@ -159,20 +164,20 @@ impl<'a, N: Note, Id: Clone + Eq> Parser<'a, '_, '_, N, Id> {
         }
 
         if let Some(sharp_span) = sharp_span {
-            let inner = self.arena.alloc(melody);
+            let inner = self.alloc.pack(melody);
             melody = Melody::Sharp(sharp_span, sharps, inner);
         }
 
         if self.peek([Token::Minus, Token::Plus]).is_some() {
             let (offset, offset_span) = self.offset();
-            let melody = self.arena.alloc(melody);
+            let melody = self.alloc.pack(melody);
             Melody::Offset(offset_span, offset, melody)
         } else {
             melody
         }
     }
 
-    fn simple(&mut self) -> Melody<'a, N, Id> {
+    fn simple(&mut self) -> Melody<N, Id, A> {
         let melody = match self.advance() {
             Some((Token::Name(n), span)) => match N::parse(n) {
                 Some(note) => Melody::Note(span, note),
@@ -210,11 +215,12 @@ impl<'a, N: Note, Id: Clone + Eq> Parser<'a, '_, '_, N, Id> {
             _ => unreachable!(),
         };
 
-        let (num, span): (BigInt, _) =
+        let (num, span) =
             if let Some((Token::Number(s), num_span)) = self.consume(Token::Number("")) {
                 (sign * Self::parse_int(s), num_span + span)
             } else {
-                todo!()
+                self.errors.push(Error::ExpectedNumber(self.span.clone()));
+                (BigInt::from(1), self.span.clone())
             };
 
         if let Some(offset) = num.to_isize() {

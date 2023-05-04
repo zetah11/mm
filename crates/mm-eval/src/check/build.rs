@@ -3,14 +3,19 @@ use super::Checker;
 use crate::check::equation::{Sum, Term};
 use crate::implicit::Melody;
 use crate::note::Note;
-use crate::{Factor, Length};
+use crate::{melody, Allocator, Factor, Length};
 
-impl<N: Note, Id> Checker<'_, N, Id> {
-    pub fn build_equation(&self, melody: &Melody<N, Id>) -> Vec<Sum> {
+impl<N, Id, A> Checker<'_, N, Id, A>
+where
+    N: Note,
+    A: Allocator<melody::Melody<N, Id, A>>,
+    A: Allocator<Melody<N, Id, A>>,
+{
+    pub fn build_equation(&self, melody: &Melody<N, Id, A>) -> Vec<Sum> {
         self.build(&Factor::one(), melody)
     }
 
-    fn build(&self, factor: &Factor, melody: &Melody<N, Id>) -> Vec<Sum> {
+    fn build(&self, factor: &Factor, melody: &Melody<N, Id, A>) -> Vec<Sum> {
         match melody {
             Melody::Pause(_) => Self::constant(factor * &Length::one()),
             Melody::Note(_, _) => Self::constant(factor * &Length::one()),
@@ -25,19 +30,23 @@ impl<N: Note, Id> Checker<'_, N, Id> {
 
             Melody::Scale(_, scale, melody) => {
                 let factor = factor * scale;
-                self.build(&factor, melody)
+                self.build(&factor, A::as_ref(melody))
             }
 
-            Melody::Sharp(_, _, melody) => self.build(factor, melody),
-            Melody::Offset(_, _, melody) => self.build(factor, melody),
+            Melody::Sharp(_, _, melody) => self.build(factor, A::as_ref(melody)),
+            Melody::Offset(_, _, melody) => self.build(factor, A::as_ref(melody)),
 
-            Melody::Sequence(melodies) => {
-                Self::sum(melodies.iter().map(|melody| self.build(factor, melody)))
-            }
+            Melody::Sequence(melodies) => Self::sum(
+                A::as_slice(melodies)
+                    .iter()
+                    .map(|melody| self.build(factor, melody)),
+            ),
 
-            Melody::Stack(melodies) => {
-                Self::max(melodies.iter().map(|melody| self.build(factor, melody)))
-            }
+            Melody::Stack(melodies) => Self::max(
+                A::as_slice(melodies)
+                    .iter()
+                    .map(|melody| self.build(factor, melody)),
+            ),
         }
     }
 
