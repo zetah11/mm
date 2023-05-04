@@ -1,18 +1,13 @@
 use std::ops::Range;
 
 use egui::TextBuffer;
-use mm_eval::eval::Evaluator;
-use mm_eval::note::Note;
 use mm_eval::span::Span;
-use mm_eval::{Heap, Names};
 
-pub struct ProgramBuffer<N, Id> {
+pub struct ProgramBuffer<Id> {
     name: Id,
     code: String,
     edits: Vec<isize>,
     dirty: bool,
-
-    evaluator: Evaluator<N, Id, Heap>,
 }
 
 #[derive(Default)]
@@ -21,62 +16,45 @@ pub struct EditBuffer<Id> {
     edits: Vec<isize>,
 }
 
-impl<N: Note, Id: Clone + Eq> ProgramBuffer<N, Id> {
-    pub fn new(
-        name: Id,
-        initial: &str,
-        evaluator: Evaluator<N, Id, Heap>,
-    ) -> (Self, EditBuffer<Id>) {
+impl<Id: Clone> ProgramBuffer<Id> {
+    pub fn new(name: Id, initial: &str) -> (Self, EditBuffer<Id>) {
         let this = Self {
             name: name.clone(),
             code: initial.into(),
-            edits: vec![0; initial.len()],
+            edits: vec![0; initial.len() + 1],
             dirty: false,
-
-            evaluator,
         };
 
         let edits = EditBuffer {
             name,
-            edits: vec![0; initial.len()],
+            edits: vec![0; initial.len() + 1],
         };
 
         (this, edits)
     }
 
-    pub fn evaluator(&self) -> &Evaluator<N, Id, Heap> {
-        &self.evaluator
-    }
-
-    pub fn update(&mut self, names: &mut Names, edits: &mut EditBuffer<Id>) {
+    pub fn update<F>(&mut self, edits: &mut EditBuffer<Id>, on_change: F)
+    where
+        F: FnOnce(&Id, &str) -> Result<(), usize>,
+    {
         if self.dirty {
-            match mm_eval::compile(&mut Heap, names, self.name.clone(), &self.code) {
-                Ok(program) => {
-                    self.edits = vec![0; self.code.len()];
-
-                    let entry = *program
-                        .public
-                        .first()
-                        .expect("missing entry is reported by checking pass");
-
-                    self.evaluator = Evaluator::new(program.defs, entry);
+            match on_change(&self.name, &self.code) {
+                Ok(()) => {
+                    self.edits = vec![0; self.code.len() + 1];
                 }
 
-                Err(errors) => {
-                    println!("{} errors", errors.len());
+                Err(n) => {
+                    println!("{n} errors");
                 }
             }
 
-            if edits.name == self.name {
-                edits.edits.clone_from(&self.edits);
-            }
-
+            edits.edits.clone_from(&self.edits);
             self.dirty = false;
         }
     }
 }
 
-impl<N, Id> TextBuffer for ProgramBuffer<N, Id> {
+impl<Id> TextBuffer for ProgramBuffer<Id> {
     fn is_mutable(&self) -> bool {
         true
     }
@@ -113,7 +91,7 @@ enum Edit<'a> {
     Delete(Range<usize>),
 }
 
-impl<N, Id> ProgramBuffer<N, Id> {
+impl<Id> ProgramBuffer<Id> {
     fn do_edit(&mut self, edit: Edit) {
         match edit {
             Edit::Insert { text, char_index } => {

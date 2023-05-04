@@ -17,7 +17,7 @@ it! = (G, A | D, C), 4 F"#;
 pub struct Gui {
     names: Names,
     edits: EditBuffer<()>,
-    program: ProgramBuffer<Pitch, ()>,
+    program: ProgramBuffer<()>,
 
     pitches: Vec<(Pitch, Span<()>, Time, Length)>,
     hover: Option<Span<()>>,
@@ -37,8 +37,9 @@ impl Gui {
         let eval: Evaluator<Pitch, (), Heap> =
             Evaluator::new(program.defs, names.make("it")).with_max_depth(5);
 
-        let (program, edits) = ProgramBuffer::new((), SOURCE, eval);
-        let pitches = program.evaluator().iter().take(100).collect();
+        let pitches = eval.iter().take(100).collect();
+
+        let (program, edits) = ProgramBuffer::new((), SOURCE);
 
         Self {
             names,
@@ -51,7 +52,19 @@ impl Gui {
     }
 
     pub fn ui(&mut self, ui: &mut egui::Ui) {
-        self.program.update(&mut self.names, &mut self.edits);
+        self.program.update(&mut self.edits, |_name, code| {
+            match mm_eval::compile::<Pitch, _, _>(&mut Heap, &mut self.names, (), code) {
+                Ok(program) => {
+                    let eval: Evaluator<_, _, Heap> =
+                        Evaluator::new(program.defs, self.names.make("it")).with_max_depth(5);
+                    self.pitches = eval.iter().take(100).collect();
+
+                    Ok(())
+                }
+
+                Err(es) => Err(es.len()),
+            }
+        });
 
         ui.columns(2, |columns| {
             Frame::canvas(columns[0].style()).show(&mut columns[0], |ui| {
