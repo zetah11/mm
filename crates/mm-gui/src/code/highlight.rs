@@ -1,11 +1,18 @@
 use egui::text::LayoutJob;
 use mm_eval::span::Span;
 
-use super::CodeTheme;
+use super::{CodeTheme, EditBuffer};
 
-pub fn highlight(theme: &CodeTheme, hover: Option<Span<()>>, mut text: &str) -> LayoutJob {
+pub fn highlight<Id: Eq>(
+    theme: &CodeTheme,
+    buffer: &EditBuffer<Id>,
+    hover: Option<Span<Id>>,
+    mut text: &str,
+) -> LayoutJob {
     let mut job = LayoutJob::default();
     let mut start = 0;
+
+    let hover = hover.and_then(|hover| buffer.translate(hover));
 
     while !text.is_empty() {
         let (mut format, end) = if text.starts_with("--") {
@@ -28,7 +35,7 @@ pub fn highlight(theme: &CodeTheme, hover: Option<Span<()>>, mut text: &str) -> 
             (theme.punctuation.clone(), end)
         };
 
-        if let Some(hover) = hover {
+        if let Some(hover) = &hover {
             if hover.start == start && hover.end == start + end {
                 format.background = theme.hover;
             }

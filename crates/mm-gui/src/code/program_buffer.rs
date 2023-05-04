@@ -4,55 +4,61 @@ use egui::TextBuffer;
 use mm_eval::eval::Evaluator;
 use mm_eval::note::Note;
 use mm_eval::span::Span;
-use mm_eval::{implicit, melody, Names};
-use typed_arena::Arena;
+use mm_eval::{Heap, Names};
 
-pub struct ProgramBuffer<'a, N, Id> {
+pub struct ProgramBuffer<N, Id> {
     name: Id,
-    known_good: String,
     code: String,
     edits: Vec<isize>,
     dirty: bool,
 
-    evaluator: Evaluator<'a, N, Id>,
+    evaluator: Evaluator<N, Id, Heap>,
 }
 
-impl<'a, N: Note, Id: Clone + Eq> ProgramBuffer<'a, N, Id> {
-    pub fn new(name: Id, initial: &str, evaluator: Evaluator<'a, N, Id>) -> Self {
-        Self {
-            name,
-            known_good: initial.into(),
+#[derive(Default)]
+pub struct EditBuffer<Id> {
+    name: Id,
+    edits: Vec<isize>,
+}
+
+impl<N: Note, Id: Clone + Eq> ProgramBuffer<N, Id> {
+    pub fn new(
+        name: Id,
+        initial: &str,
+        evaluator: Evaluator<N, Id, Heap>,
+    ) -> (Self, EditBuffer<Id>) {
+        let this = Self {
+            name: name.clone(),
             code: initial.into(),
             edits: vec![0; initial.len()],
             dirty: false,
 
             evaluator,
-        }
+        };
+
+        let edits = EditBuffer {
+            name,
+            edits: vec![0; initial.len()],
+        };
+
+        (this, edits)
     }
 
-    pub fn name(&self) -> &Id {
-        &self.name
-    }
-
-    pub fn evaluator(&self) -> &Evaluator<'a, N, Id> {
+    pub fn evaluator(&self) -> &Evaluator<N, Id, Heap> {
         &self.evaluator
     }
 
-    pub fn update(
-        &mut self,
-        names: &mut Names,
-        implicits: &'a Arena<implicit::Melody<'a, N, Id>>,
-        explicits: &'a Arena<melody::Melody<'a, N, Id>>,
-    ) {
+    pub fn update(&mut self, names: &mut Names, edits: &mut EditBuffer<Id>) {
         if self.dirty {
-            match mm_eval::compile(names, implicits, explicits, self.name.clone(), &self.code) {
+            match mm_eval::compile(&mut Heap, names, self.name.clone(), &self.code) {
                 Ok(program) => {
-                    self.set_good(self.code.clone());
+                    self.edits = vec![0; self.code.len()];
 
                     let entry = *program
                         .public
                         .first()
                         .expect("missing entry is reported by checking pass");
+
                     self.evaluator = Evaluator::new(program.defs, entry);
                 }
 
@@ -61,27 +67,16 @@ impl<'a, N: Note, Id: Clone + Eq> ProgramBuffer<'a, N, Id> {
                 }
             }
 
+            if edits.name == self.name {
+                edits.edits.clone_from(&self.edits);
+            }
+
             self.dirty = false;
         }
     }
-
-    pub fn translate(&self, span: Span<Id>) -> Span<Id> {
-        if span.source != self.name {
-            return span;
-        }
-
-        let start = self.translate_pos(span.start);
-        let end = self.translate_pos(span.end);
-        Span::new(span.source, start..end)
-    }
-
-    fn set_good(&mut self, code: String) {
-        self.edits = vec![0; code.len()];
-        self.known_good = code;
-    }
 }
 
-impl<N, Id> TextBuffer for ProgramBuffer<'_, N, Id> {
+impl<N, Id> TextBuffer for ProgramBuffer<N, Id> {
     fn is_mutable(&self) -> bool {
         true
     }
@@ -100,13 +95,25 @@ impl<N, Id> TextBuffer for ProgramBuffer<'_, N, Id> {
     }
 }
 
+impl<Id: Eq> EditBuffer<Id> {
+    pub fn translate(&self, span: Span<Id>) -> Option<Span<Id>> {
+        if span.source != self.name {
+            return None;
+        }
+
+        let start = translate_pos(&self.edits, span.start);
+        let end = translate_pos(&self.edits, span.end);
+        Some(Span::new(span.source, start..end))
+    }
+}
+
 enum Edit<'a> {
     Insert { text: &'a str, char_index: usize },
 
     Delete(Range<usize>),
 }
 
-impl<N, Id> ProgramBuffer<'_, N, Id> {
+impl<N, Id> ProgramBuffer<N, Id> {
     fn do_edit(&mut self, edit: Edit) {
         match edit {
             Edit::Insert { text, char_index } => {
@@ -163,10 +170,8 @@ impl<N, Id> ProgramBuffer<'_, N, Id> {
 
         closest.unwrap_or((0, 0)).1
     }
+}
 
-    /// Translate a position in the `self.known_good` string to a reasonable
-    /// approximation in the `self.code` string.
-    fn translate_pos(&self, pos: usize) -> usize {
-        (self.edits[pos] + pos as isize) as usize
-    }
+fn translate_pos(edits: &[isize], pos: usize) -> usize {
+    (edits[pos] + pos as isize) as usize
 }

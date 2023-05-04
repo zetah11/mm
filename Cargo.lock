@@ -1557,7 +1557,6 @@ dependencies = [
  "mm-eval",
  "mm-media",
  "num-traits",
- "typed-arena",
 ]
 
 [[package]]

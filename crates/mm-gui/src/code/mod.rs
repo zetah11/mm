@@ -1,5 +1,5 @@
 pub use self::highlight::highlight;
-pub use self::program_buffer::ProgramBuffer;
+pub use self::program_buffer::{EditBuffer, ProgramBuffer};
 
 mod highlight;
 mod program_buffer;

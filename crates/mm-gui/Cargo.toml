@@ -11,4 +11,3 @@ mm-media = { path = "../mm-media" }
 
 egui = "0.21"
 num-traits = "0.2"
-typed-arena = "2.0"
