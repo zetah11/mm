@@ -15,4 +15,3 @@ mm-media = { path = "crates/mm-media" }
 
 ariadne = { version = "0.2", features = ["auto-color"] }
 notify-debouncer-mini = "0.2"
-typed-arena = "2.0"
