@@ -5,7 +5,7 @@ use egui::{Frame, TextEdit};
 use melody::NoteView;
 use mm_eval::eval::Evaluator;
 use mm_eval::span::Span;
-use mm_eval::{compile, Length, Name, Time};
+use mm_eval::{compile, Length, Names, Time};
 use mm_media::midi::Pitch;
 use typed_arena::Arena;
 
@@ -14,24 +14,30 @@ use crate::code::CodeTheme;
 const SOURCE: &str = r#"-- mm is for makin' music!
 it! = (G, A | D, C), 4 F"#;
 
-#[derive(Debug, Default)]
 pub struct Gui {
-    content: String,
+    names: Names,
     pitches: Vec<(Pitch, Span<()>, Time, Length)>,
     hover: Option<Span<()>>,
 }
 
+impl Default for Gui {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Gui {
     pub fn new() -> Self {
+        let mut names = Names::new();
         let implicits = Arena::new();
         let explicits = Arena::new();
 
-        let program = compile(&implicits, &explicits, (), SOURCE).unwrap();
-        let eval = Evaluator::new(program.defs, Name("it")).with_max_depth(5);
-        let pitches = eval.iter().take(50).collect();
+        let program = compile(&mut names, &implicits, &explicits, (), SOURCE).unwrap();
+        let eval = Evaluator::new(program.defs, names.make("it")).with_max_depth(5);
+        let pitches = eval.iter().take(100).collect();
 
         Self {
-            content: String::from(SOURCE),
+            names,
             pitches,
             hover: None,
         }
@@ -53,9 +59,11 @@ impl Gui {
                         ui.fonts(|f| f.layout_job(layout_job))
                     };
 
+                    let mut source = SOURCE;
+
                     ui.add_sized(
                         ui.available_size(),
-                        TextEdit::multiline(&mut self.content)
+                        TextEdit::multiline(&mut source)
                             .code_editor()
                             .desired_width(f32::INFINITY)
                             .layouter(&mut layouter),
