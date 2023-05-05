@@ -8,6 +8,8 @@ pub struct ProgramBuffer<Id> {
     code: String,
     edits: Vec<isize>,
     dirty: bool,
+
+    errors: Vec<(String, Span<Id>)>,
 }
 
 #[derive(Default)]
@@ -23,6 +25,8 @@ impl<Id: Clone> ProgramBuffer<Id> {
             code: initial.into(),
             edits: vec![0; initial.len() + 1],
             dirty: false,
+
+            errors: Vec::new(),
         };
 
         let edits = EditBuffer {
@@ -35,22 +39,27 @@ impl<Id: Clone> ProgramBuffer<Id> {
 
     pub fn update<F>(&mut self, edits: &mut EditBuffer<Id>, on_change: F)
     where
-        F: FnOnce(&Id, &str) -> Result<(), usize>,
+        F: FnOnce(&Id, &str) -> Result<(), Vec<(String, Span<Id>)>>,
     {
         if self.dirty {
             match on_change(&self.name, &self.code) {
                 Ok(()) => {
                     self.edits = vec![0; self.code.len() + 1];
+                    self.errors.clear();
                 }
 
-                Err(n) => {
-                    println!("{n} errors");
+                Err(errors) => {
+                    self.errors = errors;
                 }
             }
 
             edits.edits.clone_from(&self.edits);
             self.dirty = false;
         }
+    }
+
+    pub fn errors(&self) -> &[(String, Span<Id>)] {
+        &self.errors
     }
 }
 
