@@ -20,9 +20,10 @@ it! = (G, A | D, C), 4 F"#;
 pub struct Gui {
     names: Names,
     edits: EditBuffer<()>,
-    program: ProgramBuffer<()>,
+    buffer: ProgramBuffer<()>,
     time: f64,
 
+    program: mm_eval::melody::Program<Pitch, (), Heap>,
     entry: Name,
     prev_entry: Name,
 
@@ -41,24 +42,26 @@ impl Gui {
     pub fn new() -> Self {
         let mut names = Names::new();
 
-        let stored = compile(&mut Heap, &mut names, (), SOURCE).unwrap();
-        let entries = stored.public;
+        let program = compile(&mut Heap, &mut names, (), SOURCE).unwrap();
+        let entries = program.public.clone();
         let entry = *entries
             .first()
             .expect("valid programs have at least one public name");
 
-        let eval: Evaluator<Pitch, (), Heap> = Evaluator::new(stored.defs, entry).with_max_depth(5);
+        let eval: Evaluator<Pitch, (), Heap> =
+            Evaluator::new(&program.defs, entry).with_max_depth(5);
 
         let pitches = eval.iter().take(100).collect();
 
-        let (program, edits) = ProgramBuffer::new((), SOURCE);
+        let (buffer, edits) = ProgramBuffer::new((), SOURCE);
 
         Self {
             names,
-            program,
+            buffer,
             edits,
             time: 0.0,
 
+            program,
             entry,
             prev_entry: entry,
 
@@ -101,7 +104,7 @@ impl Gui {
 
             ui.add_sized(
                 ui.available_size(),
-                TextEdit::multiline(&mut self.program)
+                TextEdit::multiline(&mut self.buffer)
                     .code_editor()
                     .desired_width(f32::INFINITY)
                     .layouter(&mut layouter),
@@ -122,7 +125,7 @@ impl Gui {
     }
 
     fn errors(&mut self, ui: &mut Ui) {
-        let errors = self.program.errors();
+        let errors = self.buffer.errors();
         let title = if errors.is_empty() {
             "No issues".into()
         } else if errors.len() == 1 {
@@ -154,7 +157,9 @@ impl Gui {
     }
 
     fn handle_recompile(&mut self) {
-        self.program.update(&mut self.edits, |_name, code| {
+        let mut dirty = false;
+
+        self.buffer.update(&mut self.edits, |_name, code| {
             match mm_eval::compile::<Pitch, _, _>(&mut Heap, &mut self.names, (), code) {
                 Ok(program) => {
                     self.entries = program.public.clone();
@@ -164,11 +169,8 @@ impl Gui {
                         .copied()
                         .expect("no public names reported by checking pass");
                     self.prev_entry = self.entry;
-
-                    let eval: Evaluator<_, _, Heap> =
-                        Evaluator::new(program.defs, self.entry).with_max_depth(5);
-
-                    self.pitches = eval.iter().take(100).collect();
+                    self.program = program;
+                    dirty = true;
 
                     Ok(())
                 }
@@ -180,8 +182,10 @@ impl Gui {
             }
         });
 
-        if self.prev_entry != self.entry {
-            todo!("reevaluate");
+        if dirty || self.prev_entry != self.entry {
+            let eval: Evaluator<_, _, Heap> =
+                Evaluator::new(&self.program.defs, self.entry).with_max_depth(5);
+            self.pitches = eval.iter().take(100).collect();
         }
     }
 
