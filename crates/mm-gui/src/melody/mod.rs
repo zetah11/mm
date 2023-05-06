@@ -1,3 +1,6 @@
+use std::hash::Hash;
+
+use egui::epaint::RectShape;
 use egui::plot::{log_grid_spacer, GridInput, GridMark};
 use egui::{
     lerp, pos2, remap_clamp, vec2, Color32, PointerButton, Rect, Rounding, Sense, Shape, Stroke,
@@ -19,24 +22,32 @@ impl Bounds {
         self.offset_pitch += delta.x;
         self.offset_time += delta.y;
     }
+
+    pub fn reset_on(&mut self, time: f32) {
+        self.offset_pitch = 0.0;
+        self.offset_time = time;
+    }
 }
 
 pub struct NoteView<'notes, 'm, Id> {
     notes: &'notes [(Pitch, Span<Id>, Time, Length)],
     hover: &'m mut Option<&'notes Span<Id>>,
-    bounds: &'m mut Bounds,
+    id: egui::Id,
+    time: f32,
 }
 
 impl<'notes, 'm, Id> NoteView<'notes, 'm, Id> {
     pub fn new(
         notes: &'notes [(Pitch, Span<Id>, Time, Length)],
         hover: &'m mut Option<&'notes Span<Id>>,
-        bounds: &'m mut Bounds,
+        id: impl Hash,
+        time: f32,
     ) -> Self {
         Self {
             notes,
             hover,
-            bounds,
+            id: egui::Id::new(id),
+            time,
         }
     }
 }
@@ -46,10 +57,24 @@ impl<Id> Widget for NoteView<'_, '_, Id> {
         let (rect, response) = ui.allocate_at_least(ui.available_size(), Sense::drag());
         let painter = ui.painter().with_clip_rect(rect);
 
+        let width = 10.0;
+        let beat_height = 30.0;
+
+        let mut bounds: Bounds = ui
+            .ctx()
+            .memory_mut(|mem| mem.data.get_temp(self.id).unwrap_or_default());
+
         if response.dragged_by(PointerButton::Primary) {
             let delta = response.drag_delta();
-            self.bounds.translate(delta);
+            bounds.translate(delta);
         }
+
+        if response.double_clicked_by(PointerButton::Primary) {
+            bounds.reset_on(-self.time * beat_height);
+        }
+
+        ui.ctx()
+            .memory_mut(|mem| mem.data.insert_temp(self.id, bounds));
 
         let hover = if response.hovered() {
             response.hover_pos()
@@ -57,24 +82,20 @@ impl<Id> Widget for NoteView<'_, '_, Id> {
             None
         };
 
-        let width = 10.0;
-        let beat_height = 30.0;
-
         let mut shapes = Vec::new();
-        self.draw_grid(ui, &mut shapes, rect, width, beat_height);
-        painter.extend(shapes);
+        self.draw_grid(ui, &mut shapes, rect, bounds, width, beat_height);
 
         let mut hover_span = None;
-        let color = ui.style().visuals.error_fg_color;
+        let fill = ui.style().visuals.error_fg_color;
         let hover_stroke = ui.style().visuals.widgets.hovered.fg_stroke;
         let rounding = Rounding::same(width / 4.0).at_most(width / 2.0);
 
         for (pitch, at, start, length) in self.notes {
             let x = pitch.offset(&Pitch::A4);
-            let x = rect.min.x + rect.width() / 2.0 + x as f32 * width + self.bounds.offset_pitch;
+            let x = rect.min.x + rect.width() / 2.0 + x as f32 * width + bounds.offset_pitch;
 
             let Some(y) = start.0.to_f32() else { break; };
-            let y = rect.min.y + y * beat_height + self.bounds.offset_time;
+            let y = rect.min.y + y * beat_height + bounds.offset_time;
 
             let Length::Bounded(height) = length else { unreachable!("note lengths are always finite"); };
             let Some(height) = height.to_f32() else { break; };
@@ -93,8 +114,26 @@ impl<Id> Widget for NoteView<'_, '_, Id> {
                 Stroke::NONE
             };
 
-            painter.rect(rect, rounding, color, stroke);
+            shapes.push(Shape::Rect(RectShape {
+                rect,
+                rounding,
+                fill,
+                stroke,
+            }));
         }
+
+        let line = {
+            let y = rect.min.y + self.time * beat_height + bounds.offset_time;
+            let from = pos2(rect.min.x, y);
+            let to = pos2(rect.max.x, y);
+            Shape::line_segment(
+                [from, to],
+                ui.style().visuals.widgets.noninteractive.fg_stroke,
+            )
+        };
+
+        shapes.push(line);
+        painter.extend(shapes);
 
         *self.hover = hover_span;
         response
@@ -107,6 +146,7 @@ impl<Id> NoteView<'_, '_, Id> {
         ui: &Ui,
         shapes: &mut Vec<Shape>,
         rect: Rect,
+        bounds: Bounds,
         pitch_width: f32,
         beat_height: f32,
     ) {
@@ -114,7 +154,7 @@ impl<Id> NoteView<'_, '_, Id> {
             let mut marks = Vec::new();
 
             let steps = (rect.width() / pitch_width) as isize;
-            let leftmost = self.bounds.offset_pitch.rem_euclid(pitch_width);
+            let leftmost = (bounds.offset_pitch + rect.width() / 2.0).rem_euclid(pitch_width);
 
             for i in 0..steps {
                 let value = rect.min.x + leftmost + i as f32 * pitch_width;
@@ -129,7 +169,7 @@ impl<Id> NoteView<'_, '_, Id> {
 
         let time_marks = {
             let spacer = log_grid_spacer(4);
-            let min = -self.bounds.offset_time / beat_height;
+            let min = -bounds.offset_time / beat_height;
             let max = min + rect.height() / beat_height;
 
             let input = GridInput {
@@ -157,7 +197,7 @@ impl<Id> NoteView<'_, '_, Id> {
             let color = color_from_contrast(ui, weight);
             let stroke = Stroke::new(weight, color);
 
-            let y = mark.value as f32 * beat_height + rect.min.y + self.bounds.offset_time;
+            let y = mark.value as f32 * beat_height + rect.min.y + bounds.offset_time;
 
             let from = pos2(rect.min.x, y);
             let to = pos2(rect.max.x, y);
