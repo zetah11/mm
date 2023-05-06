@@ -19,7 +19,7 @@ fn check(
     program: HashMap<Name, <Heap as Allocator<Melody<char, &str, Heap>>>::Holder>,
     entry: Name,
 ) {
-    let eval: Evaluator<_, _, Heap> = Evaluator::new(program, entry);
+    let eval: Evaluator<_, _, Heap> = Evaluator::new(&program, entry);
     let actual: Vec<_> = eval.iter().collect();
     assert_eq!(expected, actual);
 }
@@ -179,7 +179,8 @@ fn unending_stack() {
         (name("stack"), Box::new(stack)),
     ]);
 
-    let evaluator: Evaluator<_, _, Heap> = Evaluator::new(program, name("stack")).with_max_depth(5);
+    let evaluator: Evaluator<_, _, Heap> =
+        Evaluator::new(&program, name("stack")).with_max_depth(5);
 
     let expected = vec![
         ('a', span, Time(r(0, 1)), Length::one()),
@@ -233,7 +234,7 @@ fn fractal() {
     let program = HashMap::from([(name("fractal"), Box::new(melody))]);
 
     let evaluator: Evaluator<_, _, Heap> =
-        Evaluator::new(program, name("fractal")).with_max_depth(5);
+        Evaluator::new(&program, name("fractal")).with_max_depth(5);
 
     let expected = vec![
         ('a', span, Time(r(0, 1)), Length::Bounded(r(1, 1))),

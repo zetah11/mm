@@ -73,7 +73,7 @@ fn compile(
         }
 
         let entry = program.public.pop().unwrap();
-        let eval = Evaluator::new(program.defs, entry).with_max_depth(MAX_DEPTH);
+        let eval = Evaluator::new(&program.defs, entry).with_max_depth(MAX_DEPTH);
 
         if args.make_midi {
             write(Kind::Midi, path, &eval)?;

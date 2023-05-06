@@ -14,20 +14,20 @@ use crate::{Allocator, Factor, Length, Name, Time};
 
 pub const DEFAULT_MAX_DEPTH: usize = 10;
 
-pub struct Evaluator<N, Id, A: Allocator<Melody<N, Id, A>>> {
-    program: HashMap<Name, A::Holder>,
+pub struct Evaluator<'a, N, Id, A: Allocator<Melody<N, Id, A>>> {
+    program: &'a HashMap<Name, A::Holder>,
     entry: Name,
     max_depth: usize,
     min_length: Length,
 }
 
-impl<N, Id, A> Evaluator<N, Id, A>
+impl<'a, N, Id, A> Evaluator<'a, N, Id, A>
 where
     N: Note,
     Id: Clone,
     A: Allocator<Melody<N, Id, A>>,
 {
-    pub fn new(program: HashMap<Name, A::Holder>, entry: Name) -> Self {
+    pub fn new(program: &'a HashMap<Name, A::Holder>, entry: Name) -> Self {
         Self {
             program,
             entry,
@@ -100,7 +100,7 @@ impl<N, Id, A: Allocator<Melody<N, Id, A>>> Ord for NextMelody<'_, N, Id, A> {
 }
 
 struct Iter<'a, N, Id, A: Allocator<Melody<N, Id, A>>> {
-    evaluator: &'a Evaluator<N, Id, A>,
+    evaluator: &'a Evaluator<'a, N, Id, A>,
     queue: BinaryHeap<NextMelody<'a, N, Id, A>>,
 }
 
