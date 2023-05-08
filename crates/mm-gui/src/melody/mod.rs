@@ -1,219 +1,278 @@
+mod notes;
+
+use std::collections::BinaryHeap;
+use std::fmt::Debug;
 use std::hash::Hash;
 
-use egui::epaint::RectShape;
-use egui::plot::{log_grid_spacer, GridInput, GridMark};
 use egui::{
-    lerp, pos2, remap_clamp, vec2, Color32, PointerButton, Rect, Rounding, Sense, Shape, Stroke,
-    Ui, Vec2, Widget,
+    CentralPanel, CollapsingHeader, ComboBox, Frame, RichText, ScrollArea, TextEdit,
+    TopBottomPanel, Ui,
 };
+use mm_eval::eval::Evaluator;
 use mm_eval::span::Span;
-use mm_eval::{Length, Time};
+use mm_eval::{check, compile, parse, Heap, Length, Name, Names, Time};
 use mm_media::midi::Pitch;
 use num_traits::ToPrimitive;
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Bounds {
-    offset_pitch: f32,
-    offset_time: f32,
+use self::notes::NoteView;
+use crate::audio::event::{Event, EventKind, EventList};
+use crate::audio::AudioState;
+use crate::code::{self, CodeTheme, EditBuffer, ProgramBuffer};
+use crate::structures::Latest;
+
+const SOURCE: &str = r#"-- mm is for makin' music!
+it! = (G, A | D, C), 4 F"#;
+
+pub struct Editor<Id> {
+    id: Id,
+    audio_state: AudioState,
+    events: Latest<EventList>,
+
+    names: Names,
+    edits: EditBuffer<Id>,
+    buffer: ProgramBuffer<Id>,
+
+    program: mm_eval::melody::Program<Pitch, Id, Heap>,
+    entry: Name,
+    prev_entry: Name,
+
+    entries: Vec<Name>,
+    pitches: Vec<(Pitch, Span<Id>, Time, Length)>,
+    hover: Option<Span<Id>>,
 }
 
-impl Bounds {
-    pub fn translate(&mut self, delta: Vec2) {
-        self.offset_pitch += delta.x;
-        self.offset_time += delta.y;
-    }
+impl<Id: Clone + Debug + Eq + Hash> Editor<Id> {
+    pub fn new(id: Id, audio_state: AudioState, events: Latest<EventList>) -> Self {
+        let mut names = Names::new();
 
-    pub fn reset_on(&mut self, time: f32) {
-        self.offset_pitch = 0.0;
-        self.offset_time = time;
-    }
-}
+        let program = compile(&mut Heap, &mut names, id.clone(), SOURCE).unwrap();
+        let entries = program.public.clone();
+        let entry = *entries
+            .first()
+            .expect("valid programs have at least one public name");
 
-pub struct NoteView<'notes, 'm, Id> {
-    notes: &'notes [(Pitch, Span<Id>, Time, Length)],
-    hover: &'m mut Option<&'notes Span<Id>>,
-    id: egui::Id,
-    time: f32,
-}
+        let eval: Evaluator<_, _, Heap> = Evaluator::new(&program.defs, entry).with_max_depth(5);
 
-impl<'notes, 'm, Id> NoteView<'notes, 'm, Id> {
-    pub fn new(
-        notes: &'notes [(Pitch, Span<Id>, Time, Length)],
-        hover: &'m mut Option<&'notes Span<Id>>,
-        id: impl Hash,
-        time: f32,
-    ) -> Self {
-        Self {
-            notes,
-            hover,
-            id: egui::Id::new(id),
-            time,
-        }
-    }
-}
+        let pitches = eval.iter().take(100).collect();
 
-impl<Id> Widget for NoteView<'_, '_, Id> {
-    fn ui(self, ui: &mut Ui) -> egui::Response {
-        let (rect, response) = ui.allocate_at_least(ui.available_size(), Sense::drag());
-        let painter = ui.painter().with_clip_rect(rect);
+        let (buffer, edits) = ProgramBuffer::new(id.clone(), SOURCE);
 
-        let width = 10.0;
-        let beat_height = 30.0;
+        let this = Self {
+            id,
+            audio_state,
+            events,
 
-        let mut bounds: Bounds = ui
-            .ctx()
-            .memory_mut(|mem| mem.data.get_temp(self.id).unwrap_or_default());
+            names,
+            buffer,
+            edits,
 
-        if response.dragged_by(PointerButton::Primary) {
-            let delta = response.drag_delta();
-            bounds.translate(delta);
-        }
+            program,
+            entry,
+            prev_entry: entry,
 
-        if response.double_clicked_by(PointerButton::Primary) {
-            bounds.reset_on(-self.time * beat_height);
-        }
-
-        ui.ctx()
-            .memory_mut(|mem| mem.data.insert_temp(self.id, bounds));
-
-        let hover = if response.hovered() {
-            response.hover_pos()
-        } else {
-            None
+            entries,
+            pitches,
+            hover: None,
         };
 
-        let mut shapes = Vec::new();
-        self.draw_grid(ui, &mut shapes, rect, bounds, width, beat_height);
-
-        let mut hover_span = None;
-        let fill = ui.style().visuals.error_fg_color;
-        let hover_stroke = ui.style().visuals.widgets.hovered.fg_stroke;
-        let rounding = Rounding::same(width / 4.0).at_most(width / 2.0);
-
-        for (pitch, at, start, length) in self.notes {
-            let x = pitch.offset(&Pitch::A4);
-            let x = rect.min.x + rect.width() / 2.0 + x as f32 * width + bounds.offset_pitch;
-
-            let Some(y) = start.0.to_f32() else { break; };
-            let y = rect.min.y + y * beat_height + bounds.offset_time;
-
-            let Length::Bounded(height) = length else { unreachable!("note lengths are always finite"); };
-            let Some(height) = height.to_f32() else { break; };
-            let height = height * beat_height;
-
-            let rect = Rect::from_min_size(pos2(x, y), vec2(width, height));
-
-            let stroke = if let Some(pos) = hover {
-                if rect.contains(pos) {
-                    hover_span = Some(at);
-                    hover_stroke
-                } else {
-                    Stroke::NONE
-                }
-            } else {
-                Stroke::NONE
-            };
-
-            shapes.push(Shape::Rect(RectShape {
-                rect,
-                rounding,
-                fill,
-                stroke,
-            }));
-        }
-
-        let line = {
-            let y = rect.min.y + self.time * beat_height + bounds.offset_time;
-            let from = pos2(rect.min.x, y);
-            let to = pos2(rect.max.x, y);
-            Shape::line_segment(
-                [from, to],
-                ui.style().visuals.widgets.noninteractive.fg_stroke,
-            )
-        };
-
-        shapes.push(line);
-        painter.extend(shapes);
-
-        *self.hover = hover_span;
-        response
+        this.send_events();
+        this
     }
-}
 
-impl<Id> NoteView<'_, '_, Id> {
-    fn draw_grid(
-        &self,
-        ui: &Ui,
-        shapes: &mut Vec<Shape>,
-        rect: Rect,
-        bounds: Bounds,
-        pitch_width: f32,
-        beat_height: f32,
-    ) {
-        let pitch_marks = {
-            let mut marks = Vec::new();
+    pub fn ui(&mut self, ui: &mut Ui) {
+        self.handle_recompile();
 
-            let steps = (rect.width() / pitch_width) as isize;
-            let leftmost = (bounds.offset_pitch + rect.width() / 2.0).rem_euclid(pitch_width);
+        ui.columns(2, |columns| {
+            Frame::canvas(columns[0].style()).show(&mut columns[0], |ui| {
+                self.melody(ui);
+            });
 
-            for i in 0..steps {
-                let value = rect.min.x + leftmost + i as f32 * pitch_width;
-                marks.push(GridMark {
-                    value: value as f64,
-                    step_size: pitch_width as f64,
+            TopBottomPanel::top(self.id("editor_options"))
+                .show_separator_line(false)
+                .show_inside(&mut columns[1], |ui| {
+                    self.editor_options(ui);
                 });
+
+            TopBottomPanel::bottom(self.id("error_panel"))
+                .show_separator_line(false)
+                .show_inside(&mut columns[1], |ui| {
+                    self.errors(ui);
+                });
+
+            CentralPanel::default().show_inside(&mut columns[1], |ui| {
+                self.editor(ui);
+            });
+        });
+    }
+
+    fn id(&self, h: impl Hash) -> egui::Id {
+        egui::Id::new((h, &self.id))
+    }
+
+    fn editor(&mut self, ui: &mut Ui) {
+        ScrollArea::both()
+            .id_source(self.id("editor"))
+            .show(ui, |ui| {
+                let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
+                    let theme = CodeTheme::new(ui.style());
+                    let mut layout_job =
+                        code::highlight(&theme, &self.edits, self.hover.clone(), text);
+                    layout_job.wrap.max_width = wrap_width;
+                    ui.fonts(|f| f.layout_job(layout_job))
+                };
+
+                ui.add_sized(
+                    ui.available_size(),
+                    TextEdit::multiline(&mut self.buffer)
+                        .code_editor()
+                        .desired_width(f32::INFINITY)
+                        .layouter(&mut layouter),
+                );
+            });
+    }
+
+    fn editor_options(&mut self, ui: &mut Ui) {
+        self.prev_entry = self.entry;
+        ComboBox::new(self.id("entry_selector"), "Entry")
+            .selected_text(self.names.get(&self.entry))
+            .show_ui(ui, |ui| {
+                for name in &self.entries {
+                    let label = self.names.get(name);
+                    ui.selectable_value(&mut self.entry, *name, label);
+                }
+            });
+    }
+
+    fn errors(&mut self, ui: &mut Ui) {
+        let errors = self.buffer.errors();
+        let title = if errors.is_empty() {
+            "No issues".into()
+        } else if errors.len() == 1 {
+            "1 issue".into()
+        } else {
+            format!("{} issues", errors.len())
+        };
+
+        CollapsingHeader::new(title)
+            .id_source(self.id("issues_collapsible"))
+            .default_open(false)
+            .show(ui, |ui| {
+                let color = ui.style().visuals.error_fg_color;
+                for (error, _) in errors {
+                    ui.label(RichText::new(error).color(color));
+                }
+            });
+    }
+
+    fn melody(&mut self, ui: &mut Ui) {
+        let mut hover = None;
+        ui.add(NoteView::new(
+            &self.pitches,
+            &mut hover,
+            self.id("melody_view"),
+            self.audio_state.beat() as f32,
+        ));
+        self.hover = hover.cloned();
+    }
+
+    fn handle_recompile(&mut self) {
+        let mut dirty = false;
+
+        self.buffer.update(&mut self.edits, |_name, code| {
+            match mm_eval::compile::<Pitch, _, _>(&mut Heap, &mut self.names, self.id.clone(), code)
+            {
+                Ok(program) => {
+                    self.entries = program.public.clone();
+                    self.entry = self
+                        .entries
+                        .first()
+                        .copied()
+                        .expect("no public names reported by checking pass");
+                    self.prev_entry = self.entry;
+                    self.program = program;
+                    dirty = true;
+
+                    Ok(())
+                }
+
+                Err(es) => Err(es
+                    .into_iter()
+                    .map(|error| Self::report(&self.names, error))
+                    .collect()),
+            }
+        });
+
+        if dirty || self.prev_entry != self.entry {
+            let eval: Evaluator<_, _, Heap> =
+                Evaluator::new(&self.program.defs, self.entry).with_max_depth(5);
+            self.pitches = eval.iter().take(100).collect();
+            self.send_events();
+        }
+    }
+
+    fn send_events(&self) {
+        let mut events = BinaryHeap::new();
+        for (id, (pitch, _, start, length)) in self.pitches.iter().enumerate() {
+            let Length::Bounded(length) = length else { unreachable!() };
+            let end = (&start.0 + length).to_f64().unwrap();
+            let start = start.0.to_f64().unwrap();
+            let frequency = pitch.to_frequency(440.0);
+
+            events.push(Event {
+                kind: EventKind::Start { frequency },
+                beat: start,
+                id: id as u32,
+            });
+
+            events.push(Event {
+                kind: EventKind::Stop,
+                beat: end,
+                id: id as u32,
+            });
+        }
+
+        let events = events.into_sorted_vec();
+        let events = EventList::new(events);
+        self.events.send(events);
+    }
+
+    fn report(names: &Names, error: mm_eval::Error<Id>) -> (String, Span<Id>) {
+        match error {
+            mm_eval::Error::Parse(parse::Error::DivisionByZero(s)) => {
+                ("Cannot divide by zero".into(), s)
             }
 
-            marks
-        };
+            mm_eval::Error::Parse(parse::Error::ExpectedEqual(s)) => ("Expected '='".into(), s),
 
-        let time_marks = {
-            let spacer = log_grid_spacer(4);
-            let min = -bounds.offset_time / beat_height;
-            let max = min + rect.height() / beat_height;
+            mm_eval::Error::Parse(parse::Error::ExpectedName(s)) => ("Expected a name".into(), s),
 
-            let input = GridInput {
-                bounds: (min as f64, max as f64),
-                base_step_size: (beat_height / rect.height()) as f64,
-            };
+            mm_eval::Error::Parse(parse::Error::ExpectedNote(s)) => {
+                ("Expected a note or other melody".into(), s)
+            }
 
-            spacer(input)
-        };
+            mm_eval::Error::Parse(parse::Error::ExpectedNumber(s)) => {
+                ("Expected a number".into(), s)
+            }
 
-        for mark in pitch_marks {
-            let color = color_from_contrast(ui, 0.5);
-            let stroke = Stroke::new(0.2, color);
+            mm_eval::Error::Parse(parse::Error::Redefinition { new, .. }) => {
+                ("Name already in use".into(), new)
+            }
 
-            let x = mark.value as f32;
+            mm_eval::Error::Parse(parse::Error::UnclosedParen { opener, .. }) => {
+                ("Unclosed parenthesis".into(), opener)
+            }
 
-            let from = pos2(x, rect.min.y);
-            let to = pos2(x, rect.max.y);
+            mm_eval::Error::Check(check::Error::NoPublicNames(at)) => {
+                ("No exported names".into(), at)
+            }
 
-            shapes.push(Shape::line_segment([from, to], stroke));
-        }
+            mm_eval::Error::Check(check::Error::UnboundedNotLast(at)) => {
+                ("Unbounded melodies must be last in a sequence".into(), at)
+            }
 
-        for mark in time_marks {
-            let weight = remap_clamp(mark.step_size, 0.0..=16.0, 0.0..=1.0).sqrt() as f32;
-            let color = color_from_contrast(ui, weight);
-            let stroke = Stroke::new(weight, color);
-
-            let y = mark.value as f32 * beat_height + rect.min.y + bounds.offset_time;
-
-            let from = pos2(rect.min.x, y);
-            let to = pos2(rect.max.x, y);
-
-            shapes.push(Shape::line_segment([from, to], stroke));
-        }
-
-        fn color_from_contrast(ui: &Ui, contrast: f32) -> Color32 {
-            let bg = ui.visuals().extreme_bg_color;
-            let fg = ui.visuals().widgets.open.fg_stroke.color;
-            let mix = 0.5 * contrast.sqrt();
-            Color32::from_rgb(
-                lerp((bg.r() as f32)..=(fg.r() as f32), mix) as u8,
-                lerp((bg.g() as f32)..=(fg.g() as f32), mix) as u8,
-                lerp((bg.b() as f32)..=(fg.b() as f32), mix) as u8,
-            )
+            mm_eval::Error::Check(check::Error::UnknownName(at, name)) => {
+                (format!("Undefined name '{}'", names.get(&name)), at)
+            }
         }
     }
 }

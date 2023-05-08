@@ -4,6 +4,8 @@ use std::ops::Add;
 use midly::num::u7;
 use mm_eval::note::Note;
 
+const TWELFTH_ROOT_TWO: f64 = 1.059_463_094_359_295_3;
+
 #[derive(Clone, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Pitch(isize);
 
@@ -34,6 +36,10 @@ impl Pitch {
     pub const fn a_below(&self) -> Self {
         let off = if self.0 < 0 { 1 } else { 0 };
         Self(((self.0 + off) / 12 - off) * 12)
+    }
+
+    pub fn to_frequency(&self, a4: f64) -> f64 {
+        a4 * TWELFTH_ROOT_TWO.powi(self.0 as i32)
     }
 }
 
