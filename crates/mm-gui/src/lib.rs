@@ -3,7 +3,7 @@ mod code;
 mod melody;
 mod structures;
 
-use egui::{CentralPanel, DragValue, TopBottomPanel, Ui};
+use egui::{CentralPanel, DragValue, Key, Modifiers, TopBottomPanel, Ui};
 
 use crate::audio::AudioThread;
 use crate::melody::Editor;
@@ -40,7 +40,11 @@ impl Gui {
                         "Play"
                     };
 
-                    if ui.button(text).clicked() {
+                    let pressed_shortcut = ui.input(|input| {
+                        input.modifiers.matches(Modifiers::COMMAND) && input.key_pressed(Key::Space)
+                    });
+
+                    if ui.button(text).clicked() || pressed_shortcut {
                         self.stream.state().toggle_playing();
                     }
 
