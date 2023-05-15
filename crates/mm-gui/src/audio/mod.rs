@@ -1,5 +1,6 @@
 pub mod event;
 
+mod delay;
 mod synth;
 
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -13,6 +14,9 @@ use crate::structures::Latest;
 
 const BPM_FRACTION_BITS: u32 = 12;
 const BPM_DEFAULT: u32 = 120 << BPM_FRACTION_BITS;
+
+pub type StereoIn<'a> = (&'a [f64], &'a [f64]);
+pub type StereoOut<'a> = (&'a mut [f64], &'a mut [f64]);
 
 pub struct AudioState {
     play: Arc<AtomicBool>,
@@ -103,6 +107,7 @@ pub fn play() -> (AudioThread, Latest<EventList>) {
 
     let format = config.sample_format();
     let rate = config.sample_rate().0;
+    let channels = config.channels() as usize;
     let config = config.into();
 
     let state = AudioState {
@@ -118,28 +123,28 @@ pub fn play() -> (AudioThread, Latest<EventList>) {
     let stream = match format {
         SampleFormat::F32 => device.build_output_stream(
             &config,
-            audio_fn::<f32>(state.shallow_copy(), events.clone()),
+            audio_fn::<f32>(channels, state.shallow_copy(), events.clone()),
             err_fn,
             None,
         ),
 
         SampleFormat::F64 => device.build_output_stream(
             &config,
-            audio_fn::<f64>(state.shallow_copy(), events.clone()),
+            audio_fn::<f64>(channels, state.shallow_copy(), events.clone()),
             err_fn,
             None,
         ),
 
         SampleFormat::I16 => device.build_output_stream(
             &config,
-            audio_fn::<i16>(state.shallow_copy(), events.clone()),
+            audio_fn::<i16>(channels, state.shallow_copy(), events.clone()),
             err_fn,
             None,
         ),
 
         SampleFormat::U16 => device.build_output_stream(
             &config,
-            audio_fn::<u16>(state.shallow_copy(), events.clone()),
+            audio_fn::<u16>(channels, state.shallow_copy(), events.clone()),
             err_fn,
             None,
         ),
@@ -159,25 +164,53 @@ pub fn play() -> (AudioThread, Latest<EventList>) {
 }
 
 fn audio_fn<T: Sample>(
+    channels: usize,
     state: AudioState,
     new_events: Latest<EventList>,
 ) -> impl FnMut(&mut [T], &cpal::OutputCallbackInfo)
 where
     T: FromSample<f64>,
 {
-    let mut synth = synth::synth::<4>(state.shallow_copy(), new_events);
-    let mut buffer = Buffer::new();
+    let mut synth = synth::synth::<16>(state.shallow_copy(), new_events);
+    let mut delay = delay::rotating(state.rate, std::f64::consts::FRAC_PI_3, 0.5, 0.3, 0.4, 0.6);
+
+    let mut left = Buffer::new();
+    let mut right = Buffer::new();
+
+    let mut final_left = Buffer::new();
+    let mut final_right = Buffer::new();
 
     move |data, _| {
-        let buffer = buffer.with_len(data.len());
-        synth(buffer);
+        let sample_count = (data.len() + (channels - 1)) / channels;
 
-        for (d, s) in data.iter_mut().zip(buffer.iter().copied()) {
-            *d = T::from_sample(s);
+        let left = left.with_len(sample_count);
+        let right = right.with_len(sample_count);
+
+        let final_left = final_left.with_len(sample_count);
+        let final_right = final_right.with_len(sample_count);
+
+        synth((left, right));
+        delay((left, right), (final_left, final_right));
+
+        let samples = final_left.iter().copied().zip(final_right.iter().copied());
+        for (mut d, (l, r)) in data.chunks_exact_mut(channels).zip(samples) {
+            let l = (0.3 * l).tanh();
+            let r = (0.3 * r).tanh();
+
+            if channels >= 2 {
+                d[0] = T::from_sample(l);
+                d[1] = T::from_sample(r);
+                d = &mut d[2..];
+            }
+
+            if channels <= 1 || channels > 2 {
+                let avg = (l + r) / 2.0;
+                d.fill_with(|| T::from_sample(avg));
+            }
         }
 
         if state.is_playing() {
-            state.time.fetch_add(data.len() as u64, Ordering::Relaxed);
+            state.time.fetch_add(sample_count as u64, Ordering::Relaxed);
         }
     }
 }

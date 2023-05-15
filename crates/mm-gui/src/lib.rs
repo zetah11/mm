@@ -1,16 +1,20 @@
 mod audio;
+mod clip_editor;
 mod code;
-mod melody;
+mod grid;
+mod node_editor;
 mod structures;
 
 use egui::{CentralPanel, DragValue, Key, Modifiers, TopBottomPanel, Ui};
 
 use crate::audio::AudioThread;
-use crate::melody::Editor;
+use crate::clip_editor::Editor;
 
 pub struct Gui {
     editor: Editor<()>,
     stream: AudioThread,
+
+    divisions: usize,
 }
 
 impl Default for Gui {
@@ -26,11 +30,14 @@ impl Gui {
         Self {
             editor: Editor::new((), stream.state().shallow_copy(), events),
             stream,
+
+            divisions: 4,
         }
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
         TopBottomPanel::bottom("play_options")
+            .resizable(false)
             .show_separator_line(false)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
@@ -63,12 +70,26 @@ impl Gui {
                             }
                         })
                         .clamp_range(1.0..=1000.0)
+                        .suffix(" bpm")
                         .speed(0.5),
+                    );
+
+                    ui.add(
+                        DragValue::from_get_set(|value| match value {
+                            None => self.divisions as f64,
+                            Some(value) => {
+                                let value = value.max(1.0).round();
+                                self.divisions = value as usize;
+                                value
+                            }
+                        })
+                        .max_decimals(0)
+                        .suffix(" / beat"),
                     );
                 });
             });
 
-        CentralPanel::default().show_inside(ui, |ui| self.editor.ui(ui));
+        CentralPanel::default().show_inside(ui, |ui| self.editor.draw(ui, self.divisions));
 
         if self.stream.state().is_playing() {
             ui.ctx().request_repaint();

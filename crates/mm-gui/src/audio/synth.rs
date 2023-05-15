@@ -1,18 +1,19 @@
 use std::array;
 
 use super::event::{EventKind, EventList};
-use super::AudioState;
+use super::{AudioState, StereoOut};
 use crate::structures::Latest;
 
 pub fn synth<const VOICES: usize>(
     state: AudioState,
     new_events: Latest<EventList>,
-) -> impl FnMut(&mut [f64]) {
+) -> impl FnMut(StereoOut) {
     let mut oscillators: [_; VOICES] = array::from_fn(|i| Voice::new(i as f64 / VOICES as f64));
     let mut events = EventList::new(Vec::new());
 
-    move |data| {
-        data.fill(0.0);
+    move |(left, right)| {
+        left.fill(0.0);
+        right.fill(0.0);
 
         if state.is_playing() {
             if let Some(new) = new_events.take() {
@@ -28,7 +29,7 @@ pub fn synth<const VOICES: usize>(
             let (mut beat, delta_beat) = state.beat_delta();
 
             let mut events = events.events_from(beat);
-            for v in data.iter_mut() {
+            for (left, right) in left.iter_mut().zip(right.iter_mut()) {
                 while let Some(event) = events.first() {
                     if event.beat > beat {
                         break;
@@ -50,7 +51,9 @@ pub fn synth<const VOICES: usize>(
                 }
 
                 for oscillator in oscillators.iter_mut() {
-                    *v += oscillator.tick(time, delta_time);
+                    let (l, r) = oscillator.tick(time, delta_time);
+                    *left += l;
+                    *right += r;
                 }
 
                 beat += delta_beat;
@@ -73,16 +76,21 @@ impl Voice {
             frequency: 0.0,
             phase,
 
-            env: Adsr::new(0.5, 0.1, 0.5, 0.2),
+            env: Adsr::new(0.01, 0.1, 0.4, 0.02),
         }
     }
 
-    pub fn tick(&mut self, from: f64, delta: f64) -> f64 {
-        let fx = self.frequency * from + self.phase;
-        let v = 4.0 * (fx - (fx + 0.5).floor()).abs() - 1.0;
-        let v = v * self.env.attn();
+    pub fn tick(&mut self, from: f64, delta: f64) -> (f64, f64) {
+        let rx = self.frequency * from + self.phase;
+        let lx = rx - 0.25;
+
+        let r = -4.0 * (rx - (rx + 0.5).floor()).abs() + 1.0;
+        let l = -4.0 * (lx - (lx + 0.5).floor()).abs() + 1.0;
+
+        let e = self.env.attn();
         self.env.step(delta);
-        v
+
+        (l * e, r * e)
     }
 }
 

@@ -3,6 +3,7 @@ use mm_gui::Gui;
 
 pub fn run() -> eframe::Result<()> {
     let options = NativeOptions {
+        min_window_size: Some(eframe::epaint::vec2(600.0, 400.0)),
         ..Default::default()
     };
 

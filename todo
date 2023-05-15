@@ -25,3 +25,6 @@ Errors
 Performance
 [ ] don't clone the rationals everywhere
 [x] intern names
+
+GUI
+[ ] theme.rs

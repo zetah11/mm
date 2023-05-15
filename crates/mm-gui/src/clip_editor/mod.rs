@@ -53,7 +53,7 @@ impl<Id: Clone + Debug + Eq + Hash> Editor<Id> {
 
         let eval: Evaluator<_, _, Heap> = Evaluator::new(&program.defs, entry).with_max_depth(5);
 
-        let pitches = eval.iter().take(100).collect();
+        let pitches = eval.iter().take(1000).collect();
 
         let (buffer, edits) = ProgramBuffer::new(id.clone(), SOURCE);
 
@@ -79,21 +79,25 @@ impl<Id: Clone + Debug + Eq + Hash> Editor<Id> {
         this
     }
 
-    pub fn ui(&mut self, ui: &mut Ui) {
+    pub fn draw(&mut self, ui: &mut Ui, grid_divisions: usize) {
         self.handle_recompile();
 
         ui.columns(2, |columns| {
-            Frame::canvas(columns[0].style()).show(&mut columns[0], |ui| {
-                self.melody(ui);
-            });
-
-            TopBottomPanel::top(self.id("editor_options"))
+            TopBottomPanel::bottom(self.id("editor_options"))
+                .resizable(false)
                 .show_separator_line(false)
-                .show_inside(&mut columns[1], |ui| {
-                    self.editor_options(ui);
+                .show_inside(&mut columns[0], |ui| {
+                    self.preview_options(ui);
                 });
 
+            CentralPanel::default().show_inside(&mut columns[0], |ui| {
+                Frame::canvas(ui.style()).show(ui, |ui| {
+                    self.melody(ui, grid_divisions);
+                });
+            });
+
             TopBottomPanel::bottom(self.id("error_panel"))
+                .resizable(false)
                 .show_separator_line(false)
                 .show_inside(&mut columns[1], |ui| {
                     self.errors(ui);
@@ -131,18 +135,6 @@ impl<Id: Clone + Debug + Eq + Hash> Editor<Id> {
             });
     }
 
-    fn editor_options(&mut self, ui: &mut Ui) {
-        self.prev_entry = self.entry;
-        ComboBox::new(self.id("entry_selector"), "Entry")
-            .selected_text(self.names.get(&self.entry))
-            .show_ui(ui, |ui| {
-                for name in &self.entries {
-                    let label = self.names.get(name);
-                    ui.selectable_value(&mut self.entry, *name, label);
-                }
-            });
-    }
-
     fn errors(&mut self, ui: &mut Ui) {
         let errors = self.buffer.errors();
         let title = if errors.is_empty() {
@@ -164,13 +156,26 @@ impl<Id: Clone + Debug + Eq + Hash> Editor<Id> {
             });
     }
 
-    fn melody(&mut self, ui: &mut Ui) {
+    fn preview_options(&mut self, ui: &mut Ui) {
+        self.prev_entry = self.entry;
+        ComboBox::new(self.id("entry_selector"), "Entry")
+            .selected_text(self.names.get(&self.entry))
+            .show_ui(ui, |ui| {
+                for name in &self.entries {
+                    let label = self.names.get(name);
+                    ui.selectable_value(&mut self.entry, *name, label);
+                }
+            });
+    }
+
+    fn melody(&mut self, ui: &mut Ui, grid_divisions: usize) {
         let mut hover = None;
         ui.add(NoteView::new(
             &self.pitches,
             &mut hover,
             self.id("melody_view"),
             self.audio_state.beat() as f32,
+            grid_divisions,
         ));
         self.hover = hover.cloned();
     }
@@ -205,7 +210,7 @@ impl<Id: Clone + Debug + Eq + Hash> Editor<Id> {
         if dirty || self.prev_entry != self.entry {
             let eval: Evaluator<_, _, Heap> =
                 Evaluator::new(&self.program.defs, self.entry).with_max_depth(5);
-            self.pitches = eval.iter().take(100).collect();
+            self.pitches = eval.iter().take(1000).collect();
             self.send_events();
         }
     }
