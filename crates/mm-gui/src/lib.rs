@@ -6,16 +6,15 @@ mod node_editor;
 mod structures;
 
 use egui::{pos2, CentralPanel, DragValue, Key, Modifiers, TopBottomPanel, Ui};
-use node_editor::GraphView;
 
 use crate::audio::AudioThread;
 use crate::clip_editor::Editor;
-use crate::node_editor::Graph;
+use crate::node_editor::{GraphEditor, GraphView};
 
 pub struct Gui {
     editor: Editor<()>,
     stream: AudioThread,
-    graph: Graph,
+    graph: GraphEditor,
 
     divisions: usize,
 }
@@ -29,7 +28,7 @@ impl Default for Gui {
 impl Gui {
     pub fn new() -> Self {
         let (stream, events) = audio::play();
-        let mut graph = Graph::new();
+        let mut graph = GraphEditor::new();
         let a = graph.add_node("aa".into(), pos2(50.0, 30.0));
         let b = graph.add_node("bb".into(), pos2(340.0, 125.0));
         graph.add_edge(a, b);
