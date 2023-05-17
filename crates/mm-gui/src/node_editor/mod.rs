@@ -1,126 +1,14 @@
-use std::collections::{HashMap, HashSet};
+pub use self::graph::GraphEditor;
+
+mod graph;
+
 use std::hash::Hash;
 
-use egui::{Align2, Id, Pos2, Rect, Response, Sense, Shape, Stroke, TextStyle, Ui, Vec2, Widget};
+use egui::{
+    Align2, Id, Pos2, Rect, Response, Rounding, Sense, Shape, Stroke, TextStyle, Ui, Vec2, Widget,
+};
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct NodeId(usize);
-
-#[derive(Debug)]
-pub struct Node {
-    name: String,
-    pos: Pos2,
-}
-
-impl Node {
-    fn translate(&mut self, delta: Vec2) {
-        self.pos += delta;
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Edge<N> {
-    from: N,
-    to: N,
-}
-
-#[derive(Debug, Default)]
-pub struct Graph {
-    nodes: HashMap<NodeId, Node>,
-    edges: HashSet<Edge<NodeId>>,
-    count: usize,
-}
-
-impl Graph {
-    pub fn new() -> Self {
-        Self {
-            nodes: HashMap::new(),
-            edges: HashSet::new(),
-            count: 0,
-        }
-    }
-
-    pub fn add_node(&mut self, name: String, pos: Pos2) -> NodeId {
-        let node = Node { name, pos };
-        let id = NodeId(self.count);
-        self.count += 1;
-        debug_assert!(self.nodes.insert(id, node).is_none());
-        id
-    }
-
-    pub fn add_edge(&mut self, from: NodeId, to: NodeId) {
-        self.edges.insert(Edge { from, to });
-    }
-
-    /// Remove the node with the given id. Panics if this node has already been
-    /// removed.
-    fn remove_node(&mut self, id: NodeId) -> Node {
-        let node = self
-            .nodes
-            .remove(&id)
-            .expect("nodes are never removed twice");
-        self.edges.retain(|edge| edge.from != id && edge.to != id);
-        node
-    }
-}
-
-/// Stores the UI state of the graph.
-#[derive(Debug, Default)]
-pub struct GraphEditor {
-    graph: Graph,
-    selected: Option<NodeId>,
-}
-
-impl GraphEditor {
-    pub fn new() -> Self {
-        Self {
-            graph: Graph::new(),
-            selected: None,
-        }
-    }
-
-    pub fn add_node(&mut self, name: String, pos: Pos2) -> NodeId {
-        self.graph.add_node(name, pos)
-    }
-
-    pub fn add_edge(&mut self, from: NodeId, to: NodeId) {
-        self.graph.add_edge(from, to);
-    }
-
-    /// Remove the node with the given id. Panics if this node has already been
-    /// removed.
-    pub fn remove_node(&mut self, id: NodeId) -> Node {
-        if self.selected == Some(id) {
-            self.selected = None;
-        }
-
-        self.graph.remove_node(id)
-    }
-
-    /// Get the node with the given id. Returns `None` if and only if that node
-    /// has been removed.
-    pub fn get_node(&self, id: NodeId) -> Option<&Node> {
-        self.graph.nodes.get(&id)
-    }
-
-    pub fn nodes(&self) -> impl Iterator<Item = (NodeId, &Node)> {
-        self.graph.nodes.iter().map(|(id, node)| (*id, node))
-    }
-
-    pub fn nodes_mut(&mut self) -> impl Iterator<Item = (NodeId, &mut Node)> {
-        self.graph.nodes.iter_mut().map(|(id, node)| (*id, node))
-    }
-
-    pub fn edges(&self) -> impl Iterator<Item = Edge<&Node>> {
-        const NO_DANGLING_EDGES: &str = "edges to removed nodes are also removed";
-
-        self.graph.edges.iter().map(|edge| {
-            let from = self.graph.nodes.get(&edge.from).expect(NO_DANGLING_EDGES);
-            let to = self.graph.nodes.get(&edge.to).expect(NO_DANGLING_EDGES);
-            Edge { from, to }
-        })
-    }
-}
+use self::graph::NodeId;
 
 pub struct GraphView<'a> {
     graph: &'a mut GraphEditor,
@@ -144,7 +32,7 @@ impl Widget for GraphView<'_> {
         let radius = 15.0;
         let offset = 1.5 * radius;
 
-        let (response, input) = self.handle_input(ui, response, rect, offset);
+        let (response, input) = self.handle_input(ui, response, rect, radius, offset);
 
         let mut shapes = Vec::new();
         self.draw_graph(ui, &mut shapes, radius, offset, input);
@@ -171,24 +59,41 @@ impl GraphView<'_> {
         let text_color = ui.style().visuals.extreme_bg_color;
 
         for (id, node) in self.graph.nodes() {
-            let selected = input.hovered.map_or(false, |hovered| hovered == id);
+            let hovered = input.hovered.map_or(false, |hovered| hovered == id);
 
-            let center = input.bounds.offset(node.pos);
-            shapes.push(Shape::circle_filled(center, radius, fill_color));
+            let name_pos = if node.focused {
+                let pos = input.bounds.offset(node.pos) - Vec2::splat(radius);
+                let size = node.size;
+                let rounding = Rounding::same(5.0);
+                let rect = Rect::from_min_size(pos, size);
 
-            if selected {
-                shapes.push(Shape::circle_stroke(center, radius, hover_stroke));
-            }
+                shapes.push(Shape::rect_filled(rect, rounding, fill_color));
+
+                if hovered {
+                    shapes.push(Shape::rect_stroke(rect, rounding, hover_stroke));
+                }
+
+                pos + Vec2::splat(2.0 * rounding.nw)
+            } else {
+                let center = input.bounds.offset(node.pos);
+                shapes.push(Shape::circle_filled(center, radius, fill_color));
+
+                if hovered {
+                    shapes.push(Shape::circle_stroke(center, radius, hover_stroke));
+                }
+
+                center
+            };
 
             ui.fonts(|fonts| {
                 shapes.push(Shape::text(
                     fonts,
-                    center,
+                    name_pos,
                     Align2::CENTER_CENTER,
                     &node.name,
                     font.clone(),
                     text_color,
-                ))
+                ));
             });
         }
 
@@ -220,6 +125,7 @@ impl GraphView<'_> {
         ui: &Ui,
         response: Response,
         rect: Rect,
+        actual_radius: f32,
         select_radius: f32,
     ) -> (Response, InputResult) {
         self.update_and_save_state(ui, |this, state| {
@@ -229,19 +135,31 @@ impl GraphView<'_> {
 
             let mut hovered_node = None;
             for (id, node) in this.graph.nodes_mut() {
+                if state.dragged.map_or(false, |dragged| id == dragged) {
+                    node.pos += response.drag_delta();
+                }
+
                 if let Some(pos) = state.cursor {
                     let node_pos = state.bounds.offset(node.pos);
-                    if (node_pos - pos).length_sq() <= radius {
-                        hovered_node = Some(id);
+
+                    let over_this = if node.focused {
+                        let select = Vec2::splat(select_radius);
+                        let min = node_pos - select;
+                        let size = node.size + 2.0 * (select - Vec2::splat(actual_radius));
+                        let rect = Rect::from_min_size(min, size);
+
+                        rect.contains(pos)
+                    } else {
+                        (node_pos - pos).length_sq() <= radius
+                    };
+
+                    if over_this {
+                        hovered_node = Some((id, node));
 
                         if response.drag_started() {
                             state.dragged = Some(id);
                         }
                     }
-                }
-
-                if state.dragged.map_or(false, |dragged| id == dragged) {
-                    node.translate(response.drag_delta());
                 }
             }
 
@@ -252,6 +170,14 @@ impl GraphView<'_> {
             if response.dragged() && state.dragged.is_none() {
                 state.bounds.translate(response.drag_delta());
             }
+
+            if response.double_clicked() {
+                if let Some((_, clicked)) = &mut hovered_node {
+                    clicked.focused = !clicked.focused;
+                }
+            }
+
+            let hovered_node = hovered_node.map(|(id, _)| id);
 
             if response.clicked() {
                 if let Some(clicked) = hovered_node {
@@ -274,12 +200,10 @@ impl GraphView<'_> {
                 // FIXME: the `hovered_node` here updates as the cursor moves,
                 // kind of invalidating the context menu. It should probably be
                 // kept track of between frames.
-                if let Some(node) = hovered_node {
+                if let Some(id) = hovered_node {
                     if ui.button("Remove").clicked() {
-                        this.graph.remove_node(node);
-                        if state.edge == Some(node) {
-                            state.edge = None;
-                        }
+                        this.graph.remove_node(id);
+                        state.remove(id);
 
                         ui.close_menu();
                     }
@@ -330,6 +254,18 @@ struct State {
     dragged: Option<NodeId>,
     cursor: Option<Pos2>,
     edge: Option<NodeId>,
+}
+
+impl State {
+    pub fn remove(&mut self, node: NodeId) {
+        if self.dragged == Some(node) {
+            self.dragged = None;
+        }
+
+        if self.edge == Some(node) {
+            self.edge = None;
+        }
+    }
 }
 
 #[derive(Clone, Copy, Default)]
