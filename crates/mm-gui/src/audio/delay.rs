@@ -1,10 +1,10 @@
-use super::{StereoIn, StereoOut};
+use super::{Hz, Second, StereoIn, StereoOut};
 
 pub fn rotating(
-    rate: u32,
+    rate: Hz,
     angle: f64,
-    left_time: f64,
-    right_time: f64,
+    left_time: Second,
+    right_time: Second,
     left_gain: f64,
     right_gain: f64,
 ) -> impl FnMut(StereoIn, StereoOut) {
@@ -13,8 +13,8 @@ pub fn rotating(
         (cos, sin, -sin, cos)
     };
 
-    let left_time = (left_time * rate as f64) as usize;
-    let right_time = (right_time * rate as f64) as usize;
+    let left_time = (left_time * rate) as usize;
+    let right_time = (right_time * rate) as usize;
     let left_makeup = 1.0 / (1.0 + left_gain);
     let right_makeup = 1.0 / (1.0 + right_gain);
 

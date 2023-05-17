@@ -4,6 +4,7 @@ mod code;
 mod grid;
 mod node_editor;
 mod structures;
+mod timeline;
 
 use egui::{pos2, CentralPanel, DragValue, Key, Modifiers, TopBottomPanel, Ui};
 
@@ -15,6 +16,8 @@ pub struct Gui {
     editor: Editor<()>,
     stream: AudioThread,
     graph: GraphEditor,
+
+    tab: Tab,
 
     divisions: usize,
 }
@@ -38,11 +41,23 @@ impl Gui {
             stream,
             graph,
 
+            tab: Tab::Graph,
+
             divisions: 4,
         }
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
+        TopBottomPanel::top("tab_select")
+            .resizable(false)
+            .show_separator_line(false)
+            .show_inside(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.radio_value(&mut self.tab, Tab::Graph, "Audio");
+                    ui.radio_value(&mut self.tab, Tab::Editor, "Melody");
+                })
+            });
+
         TopBottomPanel::bottom("play_options")
             .resizable(false)
             .show_separator_line(false)
@@ -66,13 +81,11 @@ impl Gui {
                         self.stream.state().stop();
                     }
 
-                    ui.label(format!("{:.1} s", self.stream.state().time()));
-
                     ui.add(
                         DragValue::from_get_set(|value| match value {
-                            None => self.stream.state().bpm(),
+                            None => self.stream.state().bpm().into(),
                             Some(value) => {
-                                self.stream.state().set_bpm(value);
+                                self.stream.state().set_bpm(value.into());
                                 value
                             }
                         })
@@ -93,16 +106,30 @@ impl Gui {
                         .max_decimals(0)
                         .suffix(" / beat"),
                     );
+
+                    ui.label(format!("{:.1}", self.stream.state().time()));
                 });
             });
 
         //CentralPanel::default().show_inside(ui, |ui| self.editor.draw(ui, self.divisions));
-        CentralPanel::default().show_inside(ui, |ui| {
-            ui.add(GraphView::new("graph_editor", &mut self.graph));
+        CentralPanel::default().show_inside(ui, |ui| match self.tab {
+            Tab::Graph => {
+                ui.add(GraphView::new("graph_editor", &mut self.graph));
+            }
+
+            Tab::Editor => {
+                self.editor.draw(ui, self.divisions);
+            }
         });
 
         if self.stream.state().is_playing() {
             ui.ctx().request_repaint();
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum Tab {
+    Graph,
+    Editor,
 }

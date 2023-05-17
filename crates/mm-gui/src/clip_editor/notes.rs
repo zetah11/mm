@@ -7,13 +7,14 @@ use mm_eval::{Length, Time};
 use mm_media::midi::Pitch;
 use num_traits::ToPrimitive;
 
+use crate::audio::Beat;
 use crate::grid::{Bounds, Grid};
 
 pub struct NoteView<'notes, 'm, Id> {
     notes: &'notes [(Pitch, Span<Id>, Time, Length)],
     hover: &'m mut Option<&'notes Span<Id>>,
     id: egui::Id,
-    time: f32,
+    time: Beat,
     divisions: i64,
 }
 
@@ -22,7 +23,7 @@ impl<'notes, 'm, Id> NoteView<'notes, 'm, Id> {
         notes: &'notes [(Pitch, Span<Id>, Time, Length)],
         hover: &'m mut Option<&'notes Span<Id>>,
         id: impl Hash,
-        time: f32,
+        time: Beat,
         grid_divisions: usize,
     ) -> Self {
         Self {
@@ -53,7 +54,7 @@ impl<Id> Widget for NoteView<'_, '_, Id> {
         }
 
         if response.double_clicked_by(PointerButton::Primary) {
-            bounds.reset_on(-self.time * beat_height);
+            bounds.reset_on(-self.time.to_f32() * beat_height);
         }
 
         ui.ctx()
@@ -104,7 +105,7 @@ impl<Id> Widget for NoteView<'_, '_, Id> {
         }
 
         let line = {
-            let y = rect.min.y + self.time * beat_height + bounds.time_offset();
+            let y = rect.min.y + self.time.to_f32() * beat_height + bounds.time_offset();
             let from = pos2(rect.min.x, y);
             let to = pos2(rect.max.x, y);
             Shape::line_segment(

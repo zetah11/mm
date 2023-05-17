@@ -45,7 +45,8 @@ impl Graph {
 
         let id = NodeId(self.count);
         self.count += 1;
-        debug_assert!(self.nodes.insert(id, node).is_none());
+        let prev = self.nodes.insert(id, node);
+        debug_assert!(prev.is_none());
         id
     }
 

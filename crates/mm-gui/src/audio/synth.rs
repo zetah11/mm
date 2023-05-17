@@ -1,7 +1,7 @@
 use std::array;
 
 use super::event::{EventKind, EventList};
-use super::{AudioState, StereoOut};
+use super::{AudioState, Hz, Second, StereoOut};
 use crate::structures::Latest;
 
 pub fn synth<const VOICES: usize>(
@@ -24,7 +24,7 @@ pub fn synth<const VOICES: usize>(
             }
 
             let mut time = state.time();
-            let delta_time = 1.0 / state.rate as f64;
+            let delta_time = 1.0 / state.rate;
 
             let (mut beat, delta_beat) = state.beat_delta();
 
@@ -64,7 +64,7 @@ pub fn synth<const VOICES: usize>(
 }
 
 struct Voice {
-    frequency: f64,
+    frequency: Hz,
     phase: f64,
 
     env: Adsr,
@@ -73,14 +73,14 @@ struct Voice {
 impl Voice {
     pub fn new(phase: f64) -> Self {
         Self {
-            frequency: 0.0,
+            frequency: 0.0.into(),
             phase,
 
-            env: Adsr::new(0.01, 0.1, 0.4, 0.02),
+            env: Adsr::new(0.01.into(), 0.1.into(), 0.4, 0.02.into()),
         }
     }
 
-    pub fn tick(&mut self, from: f64, delta: f64) -> (f64, f64) {
+    pub fn tick(&mut self, from: Second, delta: Second) -> (f64, f64) {
         let rx = self.frequency * from + self.phase;
         let lx = rx - 0.25;
 
@@ -95,27 +95,27 @@ impl Voice {
 }
 
 struct Adsr {
-    attack: f64,
-    decay: f64,
+    attack: Second,
+    decay: Second,
     sustain: f64,
-    release: f64,
+    release: Second,
 
     state: EnvelopeState,
+    time: Second,
     last: f64,
-    time: f64,
 }
 
 impl Adsr {
-    pub fn new(a: f64, d: f64, s: f64, r: f64) -> Self {
+    pub fn new(a: Second, d: Second, s: f64, r: Second) -> Self {
         Self {
-            attack: a.max(0.0),
-            decay: d.max(0.0),
+            attack: a.max(Second::ZERO),
+            decay: d.max(Second::ZERO),
             sustain: s.clamp(0.0, 1.0),
-            release: r.max(0.0),
+            release: r.max(Second::ZERO),
 
             state: EnvelopeState::Quiet,
+            time: Second::ZERO,
             last: 0.0,
-            time: 0.0,
         }
     }
 
@@ -144,7 +144,7 @@ impl Adsr {
         }
     }
 
-    pub fn step(&mut self, delta: f64) {
+    pub fn step(&mut self, delta: Second) {
         match self.state {
             EnvelopeState::Playing => {
                 if self.time <= self.attack + self.decay {
@@ -156,7 +156,7 @@ impl Adsr {
                 self.time += delta;
                 if self.time > self.release {
                     self.state = EnvelopeState::Quiet;
-                    self.time = 0.0;
+                    self.time = Second::ZERO;
                 }
             }
 
@@ -166,13 +166,13 @@ impl Adsr {
 
     pub fn start(&mut self) {
         self.state = EnvelopeState::Playing;
-        self.time = 0.0;
+        self.time = Second::ZERO;
     }
 
     pub fn stop(&mut self) {
         if matches!(self.state, EnvelopeState::Playing) {
             self.state = EnvelopeState::Released;
-            self.time = 0.0;
+            self.time = Second::ZERO;
         }
     }
 }

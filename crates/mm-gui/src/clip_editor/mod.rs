@@ -174,7 +174,7 @@ impl<Id: Clone + Debug + Eq + Hash> Editor<Id> {
             &self.pitches,
             &mut hover,
             self.id("melody_view"),
-            self.audio_state.beat() as f32,
+            self.audio_state.beat(),
             grid_divisions,
         ));
         self.hover = hover.cloned();
@@ -219,9 +219,9 @@ impl<Id: Clone + Debug + Eq + Hash> Editor<Id> {
         let mut events = BinaryHeap::new();
         for (id, (pitch, _, start, length)) in self.pitches.iter().enumerate() {
             let Length::Bounded(length) = length else { unreachable!() };
-            let end = (&start.0 + length).to_f64().unwrap();
-            let start = start.0.to_f64().unwrap();
-            let frequency = pitch.to_frequency(440.0);
+            let end = (&start.0 + length).to_f64().unwrap().into();
+            let start = start.0.to_f64().unwrap().into();
+            let frequency = pitch.to_frequency(440.0).into();
 
             events.push(Event {
                 kind: EventKind::Start { frequency },

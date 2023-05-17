@@ -1,7 +1,10 @@
 pub mod event;
 
+pub use self::time::{Beat, Bpm, Hz, Second};
+
 mod delay;
 mod synth;
+mod time;
 
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -12,9 +15,6 @@ use cpal::{FromSample, Sample, SampleFormat, Stream};
 use self::event::EventList;
 use crate::structures::Latest;
 
-const BPM_FRACTION_BITS: u32 = 12;
-const BPM_DEFAULT: u32 = 120 << BPM_FRACTION_BITS;
-
 pub type StereoIn<'a> = (&'a [f64], &'a [f64]);
 pub type StereoOut<'a> = (&'a mut [f64], &'a mut [f64]);
 
@@ -23,7 +23,7 @@ pub struct AudioState {
     time: Arc<AtomicU64>,
     bpm: Arc<AtomicU32>,
 
-    rate: u32,
+    rate: Hz,
 }
 
 impl AudioState {
@@ -52,32 +52,30 @@ impl AudioState {
         self.play.fetch_xor(true, Ordering::Relaxed);
     }
 
-    pub fn bpm(&self) -> f64 {
-        self.bpm.load(Ordering::Relaxed) as f64 / (1 << BPM_FRACTION_BITS) as f64
+    pub fn bpm(&self) -> Bpm {
+        Bpm::from(self.bpm.load(Ordering::Relaxed))
     }
 
-    pub fn set_bpm(&self, value: f64) {
-        let value = value * (1 << BPM_FRACTION_BITS) as f64;
-        let value = value as u32;
-        self.bpm.store(value, Ordering::Relaxed);
+    pub fn set_bpm(&self, value: Bpm) {
+        self.bpm.store(value.into(), Ordering::Relaxed);
     }
 
     /// Get the time in the number of beats, given the current BPM and time
     /// in seconds.
-    pub fn beat(&self) -> f64 {
+    pub fn beat(&self) -> Beat {
         self.beat_delta().0
     }
 
-    /// Get the time in the number of beats and the beat delta between
-    /// successive samples. See also [`AudioState::beat`].
-    pub fn beat_delta(&self) -> (f64, f64) {
+    /// Get the current time in number of beats as well as the length of a
+    /// sample in terms of a beat. See also [`AudioState::beat`].
+    pub fn beat_delta(&self) -> (Beat, Beat) {
         let t = self.time();
         let b = self.bpm();
-        (b * t / 60.0, b / (60.0 * self.rate as f64))
+        (b * t, b.beats_per_sample(self.rate))
     }
 
-    pub fn time(&self) -> f64 {
-        self.time.load(Ordering::Relaxed) as f64 / self.rate as f64
+    pub fn time(&self) -> Second {
+        self.time.load(Ordering::Relaxed) as f64 / self.rate
     }
 }
 
@@ -106,14 +104,14 @@ pub fn play() -> (AudioThread, Latest<EventList>) {
         .with_max_sample_rate();
 
     let format = config.sample_format();
-    let rate = config.sample_rate().0;
+    let rate = config.sample_rate().0.into();
     let channels = config.channels() as usize;
     let config = config.into();
 
     let state = AudioState {
         play: Arc::new(AtomicBool::new(false)),
         time: Arc::new(AtomicU64::new(0)),
-        bpm: Arc::new(AtomicU32::new(BPM_DEFAULT)),
+        bpm: Arc::new(AtomicU32::new(Bpm::default().into())),
         rate,
     };
 
@@ -172,7 +170,14 @@ where
     T: FromSample<f64>,
 {
     let mut synth = synth::synth::<16>(state.shallow_copy(), new_events);
-    let mut delay = delay::rotating(state.rate, std::f64::consts::FRAC_PI_3, 0.5, 0.3, 0.4, 0.6);
+    let mut delay = delay::rotating(
+        state.rate,
+        std::f64::consts::FRAC_PI_3,
+        0.5.into(),
+        0.3.into(),
+        0.4,
+        0.6,
+    );
 
     let mut left = Buffer::new();
     let mut right = Buffer::new();

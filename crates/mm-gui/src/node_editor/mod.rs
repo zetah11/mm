@@ -35,7 +35,7 @@ impl Widget for GraphView<'_> {
         let (response, input) = self.handle_input(ui, response, rect, radius, offset);
 
         let mut shapes = Vec::new();
-        self.draw_graph(ui, &mut shapes, radius, offset, input);
+        self.draw_graph(ui, rect, &mut shapes, radius, offset, input);
 
         painter.extend(shapes);
         response
@@ -46,6 +46,7 @@ impl GraphView<'_> {
     fn draw_graph(
         &self,
         ui: &Ui,
+        rect: Rect,
         shapes: &mut Vec<Shape>,
         radius: f32,
         offset: f32,
@@ -60,9 +61,10 @@ impl GraphView<'_> {
 
         for (id, node) in self.graph.nodes() {
             let hovered = input.hovered.map_or(false, |hovered| hovered == id);
+            let node_pos = input.bounds.offset(node.pos) + rect.min.to_vec2();
 
             let name_pos = if node.focused {
-                let pos = input.bounds.offset(node.pos) - Vec2::splat(radius);
+                let pos = node_pos - Vec2::splat(radius);
                 let size = node.size;
                 let rounding = Rounding::same(5.0);
                 let rect = Rect::from_min_size(pos, size);
@@ -75,7 +77,7 @@ impl GraphView<'_> {
 
                 pos + Vec2::splat(2.0 * rounding.nw)
             } else {
-                let center = input.bounds.offset(node.pos);
+                let center = node_pos;
                 shapes.push(Shape::circle_filled(center, radius, fill_color));
 
                 if hovered {
@@ -98,8 +100,8 @@ impl GraphView<'_> {
         }
 
         for edge in self.graph.edges() {
-            let start = input.bounds.offset(edge.from.pos);
-            let end = input.bounds.offset(edge.to.pos);
+            let start = input.bounds.offset(edge.from.pos) + rect.min.to_vec2();
+            let end = input.bounds.offset(edge.to.pos) + rect.min.to_vec2();
 
             let delta = end - start;
             let start = start + offset * delta.normalized();
@@ -112,7 +114,7 @@ impl GraphView<'_> {
             input.edge_from.and_then(|node| self.graph.get_node(node)),
             input.cursor,
         ) {
-            let start = input.bounds.offset(from.pos);
+            let start = input.bounds.offset(from.pos) + rect.min.to_vec2();
             let delta = pointer - start;
             let start = start + offset * delta.normalized();
 
@@ -140,7 +142,7 @@ impl GraphView<'_> {
                 }
 
                 if let Some(pos) = state.cursor {
-                    let node_pos = state.bounds.offset(node.pos);
+                    let node_pos = state.bounds.offset(node.pos) + rect.min.to_vec2();
 
                     let over_this = if node.focused {
                         let select = Vec2::splat(select_radius);
@@ -194,7 +196,7 @@ impl GraphView<'_> {
 
             let pos = state
                 .bounds
-                .undo(state.cursor.unwrap_or_else(|| rect.center()));
+                .undo(state.cursor.unwrap_or_else(|| rect.center()) - rect.min.to_vec2());
 
             let response = response.context_menu(|ui| {
                 // FIXME: the `hovered_node` here updates as the cursor moves,
