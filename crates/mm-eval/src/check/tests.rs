@@ -17,11 +17,13 @@ fn check_ok(
     program: HashMap<Name, <Heap as Allocator<implicit::Melody<char, &'static str, Heap>>>::Holder>,
 ) {
     let mut alloc = Heap;
+    let spans = program.keys().map(|name| (*name, span())).collect();
+
     let actual = super::check(
         &mut alloc,
         implicit::Program {
             defs: program,
-            spans: HashMap::new(),
+            spans,
             public: vec![names()("it")],
             source: span(),
         },
@@ -35,11 +37,13 @@ fn check_err(
     expected: Vec<Error<&str>>,
     program: HashMap<Name, <Heap as Allocator<implicit::Melody<char, &str, Heap>>>::Holder>,
 ) {
+    let spans = program.keys().map(|name| (*name, span())).collect();
+
     let actual = super::check(
         &mut Heap,
         implicit::Program {
             defs: program,
-            spans: HashMap::new(),
+            spans,
             public: vec![names()("it")],
             source: span(),
         },
@@ -404,5 +408,40 @@ fn wrong_unbounded() {
     let melody = implicit::Melody::Sequence(vec![a, to_x, b]);
     let program = HashMap::from([(name("x"), Box::new(melody))]);
     let expected = vec![Error::UnboundedNotLast(span())];
+    check_err(expected, program);
+}
+
+#[test]
+fn empty_recursive() {
+    let mut name = names();
+    let x = implicit::Melody::Name(span(), name("x"));
+    let program = HashMap::from([(name("x"), Box::new(x))]);
+
+    let expected = vec![Error::UnfoundedRecursion(span())];
+    check_err(expected, program);
+}
+
+#[test]
+fn empty_mutually_recursive() {
+    let mut name = names();
+
+    let x = implicit::Melody::Name(span(), name("y"));
+    let y = implicit::Melody::Name(span(), name("x"));
+    let program = HashMap::from([(name("x"), Box::new(x)), (name("y"), Box::new(y))]);
+
+    let expected = vec![Error::UnfoundedRecursion(span())];
+    check_err(expected, program);
+}
+
+#[test]
+fn recursive_stack() {
+    let mut name = names();
+
+    let a = implicit::Melody::Note(span(), 'a');
+    let to_x = implicit::Melody::Name(span(), name("x"));
+    let x = implicit::Melody::Stack(vec![a, to_x]);
+    let program = HashMap::from([(name("x"), Box::new(x))]);
+
+    let expected = vec![Error::UnfoundedRecursion(span())];
     check_err(expected, program);
 }

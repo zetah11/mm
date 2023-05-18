@@ -66,7 +66,7 @@ where
                 num = BigInt::from(1);
             }
 
-            span = span + second_span;
+            span += second_span;
             num
         } else {
             BigInt::from(1)

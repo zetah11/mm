@@ -80,6 +80,11 @@ impl Row {
         }
         zeroes
     }
+
+    fn all_zeroes(&self) -> bool {
+        let zero = BigRational::from_integer(BigInt::from(0));
+        self.zeroes() == self.coeffs.len() && self.constant == zero
+    }
 }
 
 impl fmt::Debug for Row {
@@ -99,16 +104,24 @@ impl fmt::Debug for Row {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Error {
+    /// The system contains a contradiction.
+    Contradiction,
+    /// The system is underspecified.
+    Unfounded,
+}
+
 /// Attempt to solve the given system of linear equations. Returns `None` if
 /// the system has no solution.
-pub fn solve<V>(mut system: System<V>) -> Option<Vec<(V, BigRational)>> {
+pub fn solve<V>(mut system: System<V>) -> Result<Vec<(V, BigRational)>, Error> {
     eliminate(&mut system)?;
-    backsolve(system)
+    Ok(backsolve(system))
 }
 
 /// Solve a system of linear equations through backsubstitution, assuming the
 /// system is in row echelon form.
-fn backsolve<V>(system: System<V>) -> Option<Vec<(V, BigRational)>> {
+fn backsolve<V>(system: System<V>) -> Vec<(V, BigRational)> {
     debug_assert!(system.is_row_echelon());
 
     let mut solutions = vec![BigRational::from_integer(BigInt::from(0)); system.size];
@@ -123,16 +136,23 @@ fn backsolve<V>(system: System<V>) -> Option<Vec<(V, BigRational)>> {
         solutions[index] = sum / row.coeffs[index].clone();
     }
 
-    Some(system.vars.into_iter().zip(solutions).collect())
+    system.vars.into_iter().zip(solutions).collect()
 }
 
 /// Perform Gaussian elimination on the system of equations.
-fn eliminate<V>(system: &mut System<V>) -> Option<()> {
+fn eliminate<V>(system: &mut System<V>) -> Result<(), Error> {
     for column in 0..system.size {
         if let Some(largest) = largest_row_index(system, column, column) {
             system.rows.swap(column, largest);
         } else {
-            return None;
+            // If a row consists of all zeroes, then *technically* there's no
+            // solution, but practically, we want every variable to solve to
+            // zero.
+            if system.rows.iter().any(|row| row.all_zeroes()) {
+                return Err(Error::Unfounded);
+            } else {
+                return Err(Error::Contradiction);
+            }
         }
 
         let big = system.rows[column].coeffs[column].clone();
@@ -151,7 +171,7 @@ fn eliminate<V>(system: &mut System<V>) -> Option<()> {
         }
     }
 
-    Some(())
+    Ok(())
 }
 
 /// Get the index of the row with the largest value at the given column,
@@ -182,7 +202,7 @@ mod tests {
     use num_bigint::BigInt;
     use num_rational::BigRational;
 
-    use super::{eliminate, Row, System};
+    use super::{eliminate, Error, Row, System};
     use crate::check::matrix::{largest_row_index, solve};
 
     fn r(n: i128, d: i128) -> BigRational {
@@ -242,7 +262,7 @@ mod tests {
         let vars = vec!["a", "b"];
         let mut system = System::new(rows, vars);
 
-        eliminate(&mut system);
+        eliminate(&mut system).unwrap();
 
         let r1 = Row {
             coeffs: vec![r(5, 1), r(-2, 1)],
@@ -288,7 +308,7 @@ mod tests {
         let vars = vec!["x", "y", "z"];
         let mut system = System::new(rows, vars);
 
-        eliminate(&mut system);
+        eliminate(&mut system).unwrap();
 
         let r1 = Row {
             coeffs: vec![r(3, 1), r(6, 1), r(9, 1)],
@@ -333,7 +353,7 @@ mod tests {
         let vars = vec!["a", "b"];
         let system = System::new(rows, vars);
 
-        let expected = Some(vec![("a", r(3, 1)), ("b", r(6, 1))]);
+        let expected = Ok(vec![("a", r(3, 1)), ("b", r(6, 1))]);
 
         let actual = solve(system);
         assert_eq!(expected, actual);
@@ -366,7 +386,7 @@ mod tests {
         let vars = vec!["x", "y", "z"];
         let system = System::new(rows, vars);
 
-        let expected = Some(vec![("x", r(2, 1)), ("y", r(3, 1)), ("z", r(1, 1))]);
+        let expected = Ok(vec![("x", r(2, 1)), ("y", r(3, 1)), ("z", r(1, 1))]);
 
         let actual = solve(system);
 
@@ -388,7 +408,7 @@ mod tests {
         let vars = vec!["n"];
         let system = System::new(rows, vars);
 
-        let expected = None;
+        let expected = Err(Error::Contradiction);
         let actual = solve(system);
 
         assert_eq!(expected, actual);

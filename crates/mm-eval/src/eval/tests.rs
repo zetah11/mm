@@ -248,3 +248,17 @@ fn fractal() {
 
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn empty_recursive() {
+    let mut name = names();
+
+    let x = Melody {
+        node: Node::Recur(name("x")),
+        span: span(),
+        length: Length::zero(),
+    };
+
+    let program = HashMap::from([(name("x"), Box::new(x))]);
+    check(vec![], program, name("x"))
+}

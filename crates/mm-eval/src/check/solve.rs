@@ -4,19 +4,21 @@ use itertools::Itertools;
 use num_bigint::BigInt;
 use num_rational::BigRational;
 
+use crate::span::Span;
 use crate::{melody, Allocator, Length};
 
 use super::equation::{Equation, Term, Variable};
-use super::matrix::{solve, Row, System};
-use super::Checker;
+use super::matrix::{self, solve, Row, System};
+use super::{Checker, Error};
 
 enum Solution {
     Solved(Vec<(Variable, BigRational)>),
     Unbounded(Vec<Variable>),
+    Unfounded(Vec<Variable>),
 }
 
 impl<N, Id, A: Allocator<melody::Melody<N, Id, A>>> Checker<'_, N, Id, A> {
-    pub fn solve(&mut self, equations: Vec<Equation>) {
+    pub fn solve(&mut self, equations: Vec<Equation>, span: Span<Id>) {
         match self.solve_equations(equations) {
             Solution::Solved(lengths) => {
                 for (var, length) in lengths {
@@ -28,6 +30,14 @@ impl<N, Id, A: Allocator<melody::Melody<N, Id, A>>> Checker<'_, N, Id, A> {
             Solution::Unbounded(vars) => {
                 for var in vars {
                     let prev = self.lengths.insert(var, Length::Unbounded);
+                    debug_assert!(prev.is_none());
+                }
+            }
+
+            Solution::Unfounded(vars) => {
+                self.errors.push(Error::UnfoundedRecursion(span));
+                for var in vars {
+                    let prev = self.lengths.insert(var, Length::zero());
                     debug_assert!(prev.is_none());
                 }
             }
@@ -58,14 +68,18 @@ impl<N, Id, A: Allocator<melody::Melody<N, Id, A>>> Checker<'_, N, Id, A> {
         for rows in possible_rows {
             let system = System::new(rows, vars.clone());
             match solve(system) {
-                Some(solution) => {
+                Ok(solution) => {
                     for (total, (_, mut new)) in result.iter_mut().zip(solution) {
                         *total = total.max(&mut new).clone();
                     }
                 }
 
-                None => {
+                Err(matrix::Error::Contradiction) => {
                     return Solution::Unbounded(vars);
+                }
+
+                Err(matrix::Error::Unfounded) => {
+                    return Solution::Unfounded(vars);
                 }
             };
         }

@@ -1,5 +1,5 @@
 use std::fmt;
-use std::ops::{Add, Range};
+use std::ops::{Add, AddAssign, Range};
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct Span<Id> {
@@ -24,10 +24,22 @@ impl<Id: Clone + Eq> Add for Span<Id> {
         debug_assert!(self.source == rhs.source);
 
         Self {
-            source: self.source.clone(),
+            source: self.source,
             start: self.start.min(rhs.start),
             end: self.end.max(rhs.end),
         }
+    }
+}
+
+impl<Id: Clone + Eq> AddAssign for Span<Id> {
+    fn add_assign(&mut self, rhs: Self) {
+        debug_assert!(self.source == rhs.source);
+
+        *self = Self {
+            source: self.source.clone(),
+            start: self.start.min(rhs.start),
+            end: self.end.max(rhs.end),
+        };
     }
 }
 

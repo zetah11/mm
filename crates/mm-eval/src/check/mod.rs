@@ -21,6 +21,7 @@ pub enum Error<Id> {
     NoPublicNames(Span<Id>),
     UnknownName(Span<Id>, Name),
     UnboundedNotLast(Span<Id>),
+    UnfoundedRecursion(Span<Id>),
 }
 
 pub fn check<N, Id, A>(
@@ -37,7 +38,18 @@ where
     let mut checker = Checker::new(alloc);
 
     for names in topology::order(&graph) {
-        checker.check_component(&program.defs, names);
+        let mut span = None;
+        for name in names.iter() {
+            let name_span = program.spans.get(name).expect("all names have a span");
+            if let Some(span) = &mut span {
+                *span += name_span.clone();
+            } else {
+                span = Some(name_span.clone());
+            }
+        }
+
+        let span = span.expect("components have at least one name");
+        checker.check_component(&program.defs, names, span);
     }
 
     if program.public.is_empty() {
@@ -88,6 +100,7 @@ where
         &mut self,
         program: &HashMap<Name, <A as Allocator<implicit::Melody<N, Id, A>>>::Holder>,
         names: HashSet<&Name>,
+        span: Span<Id>,
     ) {
         for name in names.iter() {
             let var = self.fresh();
@@ -110,7 +123,7 @@ where
             equations.push(Equation { var, sums });
         }
 
-        self.solve(equations);
+        self.solve(equations, span);
 
         for name in names.iter() {
             let Some(melody) = program.get(name) else { continue; };

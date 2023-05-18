@@ -184,5 +184,12 @@ fn make_report(names: &Names, e: Error<SourceId>) -> Report<Span> {
                 .with_label(Label::new(Span(at)))
                 .finish()
         }
+
+        Error::Check(check::Error::UnfoundedRecursion(at)) => {
+            Report::build(ReportKind::Error, at.source, at.start)
+                .with_message("Unfounded recursion")
+                .with_note("A recursive name must be followed or preceded by some notes")
+                .finish()
+        }
     }
 }
