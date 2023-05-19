@@ -10,13 +10,15 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{FromSample, Sample, SampleFormat, Stream};
+use cpal::{FromSample, Sample, SampleFormat, SampleRate, Stream, StreamConfig};
 
 use self::event::EventList;
 use crate::structures::Latest;
 
 pub type StereoIn<'a> = (&'a [f64], &'a [f64]);
 pub type StereoOut<'a> = (&'a mut [f64], &'a mut [f64]);
+
+const MAX_SAMPLE_RATE: u32 = 96_000;
 
 pub struct AudioState {
     play: Arc<AtomicBool>,
@@ -104,9 +106,15 @@ pub fn play() -> (AudioThread, Latest<EventList>) {
         .with_max_sample_rate();
 
     let format = config.sample_format();
-    let rate = config.sample_rate().0.into();
+    let rate = config.sample_rate().0.min(MAX_SAMPLE_RATE);
     let channels = config.channels() as usize;
-    let config = config.into();
+
+    let config = StreamConfig {
+        sample_rate: SampleRate(rate),
+        ..config.into()
+    };
+
+    let rate = rate.into();
 
     let state = AudioState {
         play: Arc::new(AtomicBool::new(false)),
@@ -143,6 +151,20 @@ pub fn play() -> (AudioThread, Latest<EventList>) {
         SampleFormat::U16 => device.build_output_stream(
             &config,
             audio_fn::<u16>(channels, state.shallow_copy(), events.clone()),
+            err_fn,
+            None,
+        ),
+
+        SampleFormat::I8 => device.build_output_stream(
+            &config,
+            audio_fn::<i8>(channels, state.shallow_copy(), events.clone()),
+            err_fn,
+            None,
+        ),
+
+        SampleFormat::U8 => device.build_output_stream(
+            &config,
+            audio_fn::<i8>(channels, state.shallow_copy(), events.clone()),
             err_fn,
             None,
         ),

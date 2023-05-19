@@ -98,6 +98,16 @@ impl From<Bpm> for u32 {
 #[derive(Clone, Copy, Debug)]
 pub struct Hz(f64);
 
+impl fmt::Display for Hz {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(precision) = f.precision() {
+            write!(f, "{:.*} Hz", precision, self.0)
+        } else {
+            write!(f, "{} Hz", self.0)
+        }
+    }
+}
+
 impl Eq for Hz {}
 
 impl Ord for Hz {

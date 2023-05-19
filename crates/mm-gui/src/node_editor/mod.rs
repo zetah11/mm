@@ -55,7 +55,7 @@ impl GraphView<'_> {
         let fill_color = ui.style().visuals.warn_fg_color;
         let stroke = ui.style().visuals.text_color();
         let stroke = Stroke::new(1.0, stroke);
-        let hover_stroke = ui.style().visuals.widgets.hovered.bg_stroke;
+        let hover_stroke = ui.style().visuals.widgets.hovered.fg_stroke;
         let font = TextStyle::Small.resolve(ui.style());
         let text_color = ui.style().visuals.extreme_bg_color;
 

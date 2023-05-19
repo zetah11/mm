@@ -28,3 +28,5 @@ Performance
 
 GUI
 [ ] theme.rs
+[ ] do some abstracting: there's a lot of duplicate work between clip_editor,
+    node_editor, timeline which can easily lead to inconsistencies and such

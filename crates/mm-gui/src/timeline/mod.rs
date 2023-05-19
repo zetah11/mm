@@ -1,110 +1,120 @@
-use std::collections::HashMap;
+pub use tracks::{Track, TrackId, Tracks};
 
+mod tracks;
+
+use egui::{pos2, vec2, Rect, Response, Rounding, Sense, Shape, Ui, Widget};
+
+use self::tracks::ClipId;
 use crate::audio::Beat;
 
-#[derive(Debug, Default)]
-pub struct Tracks {
-    tracks: HashMap<TrackId, Track>,
-    order: Vec<TrackId>,
-
-    track_names: HashMap<TrackId, String>,
-    name_tracks: HashMap<String, TrackId>,
-
-    counter: usize,
+pub struct Timeline<'a> {
+    tracks: &'a mut Tracks,
+    time: Beat,
 }
 
-impl Tracks {
-    pub fn new() -> Self {
-        Self {
-            tracks: HashMap::new(),
-            order: Vec::new(),
+impl<'a> Timeline<'a> {
+    pub fn new(tracks: &'a mut Tracks, time: Beat) -> Self {
+        Self { tracks, time }
+    }
+}
 
-            track_names: HashMap::new(),
-            name_tracks: HashMap::new(),
+impl Widget for Timeline<'_> {
+    fn ui(mut self, ui: &mut Ui) -> Response {
+        let (rect, response) = ui.allocate_at_least(ui.available_size(), Sense::drag());
+        let painter = ui.painter().with_clip_rect(rect);
 
-            counter: 0,
+        let beat_width = 40.0;
+        let track_height = 20.0;
+        let mut shapes = Vec::new();
+
+        let (response, input) = self.handle_input(rect, response, beat_width, track_height);
+        self.draw(ui, &mut shapes, rect, input, beat_width, track_height);
+
+        painter.extend(shapes);
+        response
+    }
+}
+
+impl Timeline<'_> {
+    fn draw(
+        &self,
+        ui: &Ui,
+        shapes: &mut Vec<Shape>,
+        rect: Rect,
+        input: InputResult,
+        beat_width: f32,
+        track_height: f32,
+    ) {
+        let fill_color = ui.visuals().error_fg_color;
+        let hover_stroke = ui.visuals().widgets.hovered.fg_stroke;
+        let rounding = Rounding::same(track_height / 4.0);
+
+        for (i, (id, track)) in self.tracks.tracks().enumerate() {
+            let y = track_height * i as f32;
+
+            for (id, clip) in track.clips(id) {
+                let x = beat_width * clip.start.to_f32();
+                let width = beat_width * clip.length.to_f32();
+
+                let min = pos2(x, y) + rect.min.to_vec2();
+                let size = vec2(width, track_height);
+                let rect = Rect::from_min_size(min, size);
+
+                shapes.push(Shape::rect_filled(rect, rounding, fill_color));
+
+                if input.hover == Some(id) {
+                    shapes.push(Shape::rect_stroke(rect, rounding, hover_stroke));
+                }
+            }
         }
-    }
 
-    /// Create a new track with the given name. Returns `None` if the name is
-    /// used by another track.
-    pub fn add_track(&mut self, name: String) -> Option<TrackId> {
-        if self.name_tracks.get(&name).is_some() {
-            None
-        } else {
-            let id = TrackId(self.counter);
-            self.counter += 1;
+        shapes.push({
+            let x = rect.min.x + beat_width * self.time.to_f32();
+            let stroke = ui.style().visuals.widgets.noninteractive.fg_stroke;
 
-            let prev = self.tracks.insert(id, Track::default());
-            debug_assert!(prev.is_none());
+            let y1 = rect.min.y;
+            let y2 = rect.max.y;
 
-            self.order.push(id);
-
-            let prev = self.track_names.insert(id, name.clone());
-            debug_assert!(prev.is_none());
-
-            let prev = self.name_tracks.insert(name, id);
-            debug_assert!(prev.is_none());
-
-            Some(id)
-        }
-    }
-
-    /// Remove the track with the given id. Returns `None` if and only if it has
-    /// already been removed.
-    pub fn remove_track(&mut self, id: TrackId) -> Option<Track> {
-        let track = self.tracks.remove(&id)?;
-
-        let index = self
-            .order
-            .iter()
-            .enumerate()
-            .find_map(|(index, track)| (*track == id).then_some(index))
-            .expect("order is in sync with tracks");
-
-        self.order.remove(index);
-
-        let name = self
-            .track_names
-            .remove(&id)
-            .expect("track_names is in sync with tracks");
-
-        self.name_tracks
-            .remove(&name)
-            .expect("name_tracks is in sync with tracks");
-
-        Some(track)
-    }
-
-    /// Add a clip to the given track. Panics if the track with the given id
-    /// does not exist.
-    pub fn add_clip(&mut self, track: TrackId, start: Beat) {
-        let name = self.track_names.get(&track).expect("no dangling track id");
-        let clips = &mut self
-            .tracks
-            .get_mut(&track)
-            .expect("no dangling track id")
-            .clips;
-
-        clips.push(Clip {
-            name: name.clone(),
-            start,
-            length: Beat::ONE,
+            Shape::line_segment([pos2(x, y1), pos2(x, y2)], stroke)
         });
     }
+
+    fn handle_input(
+        &mut self,
+        rect: Rect,
+        response: Response,
+        beat_width: f32,
+        track_height: f32,
+    ) -> (Response, InputResult) {
+        let cursor = response.hover_pos();
+
+        let mut hovered_clip = None;
+        for (i, (id, track)) in self.tracks.tracks().enumerate() {
+            let y = track_height * i as f32;
+            for (id, clip) in track.clips(id) {
+                let x = beat_width * clip.start.to_f32();
+                let width = beat_width * clip.length.to_f32();
+
+                let min = pos2(x, y) + rect.min.to_vec2();
+                let size = vec2(width, track_height);
+                let rect = Rect::from_min_size(min, size);
+
+                if let Some(cursor) = cursor {
+                    if rect.contains(cursor) {
+                        hovered_clip = Some(id);
+                    }
+                }
+            }
+        }
+
+        let input = InputResult {
+            hover: hovered_clip,
+        };
+
+        (response, input)
+    }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct TrackId(usize);
-
-#[derive(Debug, Default)]
-pub struct Track {
-    clips: Vec<Clip>,
-}
-
-#[derive(Debug)]
-struct Clip {
-    name: String,
-    start: Beat,
-    length: Beat,
+struct InputResult {
+    hover: Option<ClipId>,
 }
