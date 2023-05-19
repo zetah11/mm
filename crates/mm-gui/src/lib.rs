@@ -34,7 +34,7 @@ impl Gui {
         let mut graph = GraphEditor::new();
         let a = graph.add_node("aa".into(), pos2(50.0, 30.0));
         let b = graph.add_node("bb".into(), pos2(340.0, 125.0));
-        graph.add_edge(a, b);
+        graph.toggle_edge(a, b);
 
         Self {
             editor: Editor::new((), stream.state().shallow_copy(), events),

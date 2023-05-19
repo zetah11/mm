@@ -186,7 +186,7 @@ impl GraphView<'_> {
                     if ui.input(|input| input.modifiers.shift_only()) {
                         state.edge = Some(clicked);
                     } else if let Some(from) = state.edge {
-                        this.graph.add_edge(from, clicked);
+                        this.graph.toggle_edge(from, clicked);
                         state.edge = None;
                     }
                 } else {

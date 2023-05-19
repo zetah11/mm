@@ -8,6 +8,8 @@ const BPM_FRACTION_BITS: u32 = 12;
 pub struct Beat(f64);
 
 impl Beat {
+    pub const ONE: Self = Self(1.0);
+
     pub fn to_f32(self) -> f32 {
         self.0 as f32
     }

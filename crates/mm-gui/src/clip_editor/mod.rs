@@ -278,6 +278,10 @@ impl<Id: Clone + Debug + Eq + Hash> Editor<Id> {
             mm_eval::Error::Check(check::Error::UnknownName(at, name)) => {
                 (format!("Undefined name '{}'", names.get(&name)), at)
             }
+
+            mm_eval::Error::Check(check::Error::UnfoundedRecursion(at)) => {
+                ("Unfounded recursion".into(), at)
+            }
         }
     }
 }

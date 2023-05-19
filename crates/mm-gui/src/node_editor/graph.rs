@@ -50,8 +50,14 @@ impl Graph {
         id
     }
 
-    pub fn add_edge(&mut self, from: NodeId, to: NodeId) {
-        self.edges.insert(Edge { from, to });
+    pub fn toggle_edge(&mut self, from: NodeId, to: NodeId) {
+        let edge = Edge { from, to };
+        let other = Edge { from: to, to: from };
+
+        if !self.edges.remove(&edge) {
+            self.edges.remove(&other);
+            self.edges.insert(edge);
+        }
     }
 
     /// Remove the node with the given id. Panics if this node has already been
@@ -85,8 +91,8 @@ impl GraphEditor {
         self.graph.add_node(name, pos)
     }
 
-    pub fn add_edge(&mut self, from: NodeId, to: NodeId) {
-        self.graph.add_edge(from, to);
+    pub fn toggle_edge(&mut self, from: NodeId, to: NodeId) {
+        self.graph.toggle_edge(from, to);
     }
 
     /// Remove the node with the given id. Panics if this node has already been
