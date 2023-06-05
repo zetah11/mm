@@ -1,12 +1,12 @@
 mod audio;
 mod clip_editor;
 mod code;
-mod grid;
 mod node_editor;
 mod structures;
 mod timeline;
+mod ui;
 
-use egui::{pos2, CentralPanel, DragValue, Key, Modifiers, TopBottomPanel, Ui};
+use egui::{pos2, vec2, CentralPanel, DragValue, Key, Modifiers, Pos2, TopBottomPanel, Ui, Vec2};
 
 use crate::audio::AudioThread;
 use crate::clip_editor::Editor;
@@ -18,6 +18,7 @@ pub struct Gui {
     stream: AudioThread,
     graph: GraphEditor,
     tracks: Tracks,
+    test: TestCourse,
 
     tab: Tab,
 
@@ -53,8 +54,9 @@ impl Gui {
             stream,
             graph,
             tracks,
+            test: TestCourse::new(),
 
-            tab: Tab::Graph,
+            tab: Tab::Test,
 
             divisions: 4,
         }
@@ -68,6 +70,7 @@ impl Gui {
                 ui.horizontal(|ui| {
                     ui.radio_value(&mut self.tab, Tab::Graph, "Audio");
                     ui.radio_value(&mut self.tab, Tab::Editor, "Melody");
+                    ui.radio_value(&mut self.tab, Tab::Test, "Test");
                 })
             });
 
@@ -91,6 +94,10 @@ impl Gui {
 
             Tab::Editor => {
                 self.editor.draw(ui, self.divisions);
+            }
+
+            Tab::Test => {
+                crate::ui::plate::Plate::new("beep boop".into()).show(ui, &mut self.test);
             }
         });
 
@@ -154,4 +161,36 @@ impl Gui {
 enum Tab {
     Graph,
     Editor,
+    Test,
+}
+
+struct TestCourse {
+    square: (Pos2, Vec2),
+}
+
+impl TestCourse {
+    pub fn new() -> Self {
+        Self {
+            square: (pos2(50.0, 50.0), vec2(400.0, 200.0)),
+        }
+    }
+}
+
+impl crate::ui::plate::Course for TestCourse {
+    type MealId = ();
+
+    fn meals(&self) -> Vec<(Self::MealId, ui::plate::Meal)> {
+        vec![(
+            (),
+            crate::ui::plate::Meal {
+                top_left: self.square.0,
+                size: self.square.1,
+            },
+        )]
+    }
+
+    fn drag(&mut self, (): &Self::MealId, delta: Vec2) -> bool {
+        self.square.0 += delta;
+        true
+    }
 }

@@ -9,6 +9,7 @@ use egui::{
 };
 
 use self::graph::NodeId;
+use crate::ui::plate::{Course, Plate};
 
 pub struct GraphView<'a> {
     graph: &'a mut GraphEditor,
@@ -23,6 +24,8 @@ impl<'a> GraphView<'a> {
         }
     }
 }
+
+impl Course for GraphView<'_> {}
 
 impl Widget for GraphView<'_> {
     fn ui(mut self, ui: &mut Ui) -> Response {
